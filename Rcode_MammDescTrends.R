@@ -13,7 +13,9 @@ needed_packages <- c("tidyverse", # package version 2.0.0
                      "cowplot",
                      "MASS",
                      "RColorBrewer",
-                     "broom"
+                     "broom",
+                     'sf',
+                     'raster'
                      
 )
 new.packages<-needed_packages[!(needed_packages %in% installed.packages()[,"Package"])]
@@ -44,7 +46,8 @@ setwd() # DEFINE YOUR WORKING DIRECTORY (THE FOLDER WITH FILES NEEDED TO REPLICA
 ##############################################################################################################
 
 # Load the dataset
-data <- fread("Dataset.csv", na.strings = '') # 3905 species
+#data <- fread("Dataset.csv", na.strings = '') 
+load("Dataset.Rdata") # 1032 species
 names(data)
 
 # We have XX columns in this dataset, each one explained below:
@@ -113,6 +116,245 @@ summary(data[ , c("N.Specimens", "TaxaComparedExamined", "TaxaCompared",
 # 3rd Qu.: 20.00   3rd Qu.: 8.000       3rd Qu.: 7.000   3rd Qu.: 11.262   3rd Qu.:29.00   3rd Qu.:6.000  
 # Max.   :409.00   Max.   :77.000       Max.   :77.000   Max.   :179.000   Max.   :96.00   Max.   :8.000  
 # NA's   :60       NA's   :148          NA's   :51       NA's   :56        NA's   :37      NA's   :37 
+
+#####
+
+# Make a global map of mammal species descriptions along the last 3 decades
+##############################################################################################################
+
+# Load a world map with country subdivisions
+#world_map <- st_read("~/Documents/Rasters and shapefiles/shapefiles/gadm36_cea.shp")
+#world_map <- world_map %>% st_transform(crs = "+proj=eqearth") # change CRS to equal area
+#plot(world_map$geometry)
+
+# Load shapefile of biogeographical realms
+wwf_realms<-sf::read_sf("~/Documents/Rasters and shapefiles/shapefiles/wwf_simplified.shp")  # change directory as needed
+wwf_realms <- wwf_realms %>% st_transform(crs = "+proj=eqearth") # change CRS to equal area
+plot(wwf_realms$geometry)
+
+# Load a shapefile depicting 'world limits'
+world_limit <- sf::st_read('~/Documents/Rasters and shapefiles/shapefiles/world_limit.shp')
+world_limit <- world_limit %>% st_transform(crs = "+proj=eqearth") # change CRS to equal area
+
+# Load the dataset, then convert the geographical coordinates to an sf object
+load("Dataset.Rdata") # 1032 species
+points_sf <- sf::st_as_sf(data [ !is.na(data$Latitude) & ! is.na(data$Longitude) , c('SpeciesName', 'Latitude', 'Longitude')],
+                          coords = c("Longitude", "Latitude"), crs = st_crs("+proj=longlat +datum=WGS84"))
+
+# Transform data to the same projection as the realms map
+points_sf <- st_transform(points_sf, crs = crs(wwf_realms))
+compareCRS(wwf_realms, points_sf) # true
+
+# get aspect ratio of the spatial object for controlling white space when saving the plot
+#plot_ratio <- tmaptools::get_asp_ratio(wwf_realms) # will mutiply width in ggsave
+
+# Define colors for each biogeographic realm (Pastel1 from RColorBrewer)
+levels(as.factor(wwf_realms$wwf_realm))
+#MyBiogeoColors<-c("#fbb4ae", "#b3cde3", "#ccebc5", "#decbe4", "#fed9a6", "#ffffcc")
+MyBiogeoColors<-c("grey50", "grey40", "grey70", "grey80", "grey60", "grey90")
+names(MyBiogeoColors)<-c("Afrotropic", "Australasia", "IndoMalay", "Neartic", "Neotropic", "Paleartic")
+
+# Build the plot:
+MyMap <- ggplot2::ggplot() +
+  
+  # Add polygon boundaries for the wwf realms:
+  geom_sf(data = wwf_realms, aes(fill=wwf_realm), colour="black", size=0.1) +
+  geom_sf(data=world_limit, fill=NA, colour="black", linewidth=0.3)+
+  
+  # Add type-localities of species described:
+  geom_sf(data = points_sf, color = "orange", size = 1.3, shape = 4, alpha = 0.6) +  # Plot points
+  
+  # Inform the filling colors for each biogeographical realm:
+  scale_fill_manual(values=MyBiogeoColors) +
+  
+  # Specify other aesthetics:
+  theme(axis.line = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(), 
+        plot.background=element_rect(fill="white"),
+        plot.margin = unit(c(0, 0, 0, 0), "cm"),  # top, right, bottom, left 
+        panel.spacing = unit(c(0, 0, 0, 0), "cm"),  # top, right, bottom, left
+        panel.border = element_blank(),
+        legend.position = "none"); MyMap
+
+# Compute the proportion of species described per order per realm 
+# Perform a spatial join to get the biogeographic realm for each point
+points_sf <- st_join(points_sf, wwf_realms["wwf_realm"])
+# Add data to the main dataset
+data <- left_join(data, st_drop_geometry(points_sf), by = 'SpeciesName')
+colSums(is.na(data)) # ok
+
+PropPerRealm <- data %>%
+  dplyr::filter(!is.na(wwf_realm)) %>% # filter out rows without realm information
+  dplyr::group_by(wwf_realm, Order) %>% # group by realm and order
+  dplyr::summarise(SppRichness = n()) %>% # compute species richness per realm and order
+  dplyr::group_by(wwf_realm) %>% # compute the total species richness per realm
+  dplyr::mutate(TotalSpp = sum(SppRichness),
+                Prop = SppRichness / TotalSpp)
+
+# Same as above, but at the global level:
+PropTotal <- data %>%
+  dplyr::filter(!is.na(wwf_realm)) %>%
+  dplyr::group_by(Order) %>%
+  dplyr::summarise(wwf_realm = "Global",
+                   SppRichness = n()) %>%
+  dplyr::mutate(TotalSpp = sum(SppRichness),
+                Prop = SppRichness / TotalSpp)
+
+# Bind the datasets in a single one:
+PropPerRealm <- rbind(PropPerRealm, PropTotal); rm(PropTotal)
+#PropPerRealm <- PropPerRealm %>%
+# group_by(wwf_realm) %>%
+# group orders as 'new taxa' if prop < 0.05
+#mutate(NewOrder = ifelse(Prop <= 0.05, yes = 'Other taxa', no = Order))
+
+# Apply the global classification to create NewOrder
+GlobalData <- PropPerRealm %>%
+  filter(wwf_realm == "Global") %>%
+  mutate(NewOrder = ifelse(Prop <= 0.05, "Other taxa", Order))
+
+# Create a mapping from Order to NewOrder based on GlobalData
+classification <- GlobalData[ , c("Order", "NewOrder")]
+
+# Join this classification back to the main dataset and apply it to all realms
+PropPerRealm <- PropPerRealm %>% left_join(classification, by = "Order")
+# PropPerRealm has the same classification across all realms.
+# Use this `NewOrder` for consistent coloring in the plots.
+
+# Summarize data to get only one column for 'new taxa' per realm
+PropPerRealm <- PropPerRealm %>%
+  group_by(wwf_realm, NewOrder) %>%
+  summarise(SppRichness = sum(SppRichness),
+            TotalSpp = median(TotalSpp),
+            Prop = sum(Prop)) %>%
+  arrange(desc(Prop)) 
+
+# Define colors for each realm
+levels(as.factor(PropPerRealm$NewOrder))
+MyColors <- c(
+  "Chiroptera" = "#7fc97f",
+  "Eulipotyphla" = "#beaed4",
+  "Other taxa" = "#fdc086",
+  "Primates" = "#ffff99",
+  "Rodentia" = "#386cb0"
+)
+names(MyColors)<-c("Chiroptera", "Eulipotyphla", "Other taxa", "Primates", "Rodentia")
+
+levels(as.factor(PropPerRealm$wwf_realm))
+PropPerRealm$wwf_realm <- factor(PropPerRealm$wwf_realm,
+                                 labels = c("Afrotropic", "Australasia", "Global", "IndoMalay",
+                                            "Nearctic", "Neotropic", "Palearctic"))
+
+
+# Create one donut plot per biogeographical realm:
+MyPlot <- list()
+
+for(i in 1:nlevels(as.factor(PropPerRealm$wwf_realm))) {
+  
+  # Filter the dataset to include one biogeographical realm:
+  FilteredData <- PropPerRealm[PropPerRealm$wwf_realm == levels(as.factor(PropPerRealm$wwf_realm))[i],]
+  #FilteredData <- FilteredData %>% mutate(Order = fct_reorder(Order, Prop, .desc = TRUE))
+  FilteredData <- FilteredData %>% mutate(NewOrder = fct_reorder(NewOrder, Prop, .desc = TRUE))
+  
+  # Get the color for the current realm
+  current_realm <- levels(as.factor(PropPerRealm$wwf_realm))[i]
+  #current_color <- MyColors[current_realm]
+  #outer_color <- MyBiogeoColors[current_realm]
+  
+  # Store each plot as a list element:
+  MyPlot[[i]] <- ggplot(FilteredData, aes(x = 2, y = Prop, fill = NewOrder)) +
+    
+    # Use geom_bar for donut segments
+    #geom_bar(stat = "identity", width = 1, color = "black", fill = current_color) +
+    geom_bar(stat = "identity", width = 1, color = "black") +
+    
+    # Add the outer ring with the color of the biogeographic realm
+    #{
+    #  if(i !=3)
+    #    geom_bar(aes(x = 2.5), stat = "identity", width = 0.1, fill = outer_color, color = 'black')
+    #} +
+    
+    #scale_fill_brewer(type = 'qual', palette = 'Set3') +
+    scale_fill_manual(values = MyColors) +
+    
+    # Text labels based on condition
+    {
+      if (i == 3) { # Global level; add Order names
+        geom_text(aes(x = 2, label = paste0(scales::percent(Prop), "\n", NewOrder)), 
+                  position = position_stack(vjust = 0.5), size = 1.7)
+      } else { # Other realms; only display percentage
+        geom_text(aes(x = 2, label = scales::percent(Prop)), 
+                  position = position_stack(vjust = 0.5), size = 1.7)
+      }
+    } +
+    
+    #geom_segment(
+    #  aes(y = cumsum(Prop) - Prop / 2, yend = cumsum(Prop) - Prop / 2, x = 2, xend = 2.75),
+    #  size = 0.3,
+    #  color = "black"
+    #) +
+    
+    # Add text labels for proportions inside segments
+    #geom_text(aes(x = 2.95, label = paste0(scales::percent(Prop), "\n", NewOrder)), 
+    #          position = position_stack(vjust = 0.5), size = 2)+
+    
+  # Add TotalSpp value in the center of the donut
+  annotate("text", x = 0.5, y = 0, fontface = 'bold', size = 2.7, hjust = 0.5,
+           label = paste("N =", FilteredData$TotalSpp[1], "\n", current_realm))+
+    
+    # Use coord_polar to make it circular, with a hole in the center
+    coord_polar(theta = "y") +
+    
+    # Create a hole in the center (adjust xlim for size of hole)
+    xlim(0.5, 3) +
+    
+    # Define axis and theme aesthetics
+    labs(x = "", y = "") +
+    theme_void() +  # simplify the plot for a clean look
+    
+    theme(
+      legend.position = "none",
+      plot.margin = unit(c(-0.5, -1, -0.5, -1), "cm"),
+      panel.background = element_blank(),
+      plot.background = element_rect(fill='transparent', color=NA) #transparent plot bg
+    )
+}
+
+# Print each plot if desired
+print(MyPlot[[4]])
+
+# Set the biogeographical realm illustrated in each plot:
+names(MyPlot) <- levels(as.factor(PropPerRealm$wwf_realm))
+
+library(grid)
+
+# Define a function to place a plot as a donut at a specific location
+add_donut <- function(donut_plot, x_pos, y_pos, donut_size) {
+  annotation_custom(
+    grob = ggplotGrob(donut_plot),
+    xmin = x_pos - donut_size,
+    xmax = x_pos + donut_size,
+    ymin = y_pos - donut_size,
+    ymax = y_pos + donut_size
+  )
+}
+
+# Plot map and add donuts
+FinalPlot <- MyMap +
+  add_donut(MyPlot[["Nearctic"]], x_pos = -13067530, y_pos = -7342217 + 11200000, donut_size = 2400000) +
+  add_donut(MyPlot[["Neotropic"]], -8500530, -7342217 + 2400000, 2300000) +
+  add_donut(MyPlot[["Palearctic"]], -3500000, -7342217 + 11200000, 2400000) +
+  add_donut(MyPlot[["Afrotropic"]], -1000000, -7342217 + 4200000, 2400000) +
+  add_donut(MyPlot[["IndoMalay"]], 14500530, -7342217 + 10000000, 2400000) +
+  add_donut(MyPlot[["Australasia"]], 8000000, -7342217 + 4200000, 2400000) +
+  add_donut(MyPlot[["Global"]], -13567530, -7342217 + 6000000, 3000000)
+
+ggsave(filename="figures/Figure1_Map.png", plot=FinalPlot, width=12, height=8, units="in", bg="white", limitsize=F)
+ggsave(filename="figures/Figure1_Map.pdf", plot=FinalPlot, width=12, height=8, units="in", bg="white", limitsize=F)
 
 #####
 
