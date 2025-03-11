@@ -15,11 +15,14 @@ needed_packages <- c("tidyverse", # package version 2.0.0
                      "RColorBrewer",
                      "broom",
                      'sf',
-                     'raster'
+                     'raster',
+                     'GGally',
+                     'cowplot'
                      
 )
 new.packages<-needed_packages[!(needed_packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
+
 lapply(needed_packages, require, character.only = TRUE)
 
 for (i in seq_along(needed_packages)) {
@@ -32,7 +35,6 @@ rm(list=ls()); gc()
 # Set working directory
 setwd() # DEFINE YOUR WORKING DIRECTORY (THE FOLDER WITH FILES NEEDED TO REPLICATE THE FINDING OF THIS STUDY)
 
-
 # STEPS IN THIS SCRIPT:
 #  1. Load and understand the dataset.
 #  2. 
@@ -43,10 +45,11 @@ setwd() # DEFINE YOUR WORKING DIRECTORY (THE FOLDER WITH FILES NEEDED TO REPLICA
 ##############################################################################################################
 
 # Load the dataset
-data <- fread("Dataset.csv", na.strings = '') # 3905 species
+#data <- fread("Dataset.csv", na.strings = '') # 3905 species
+load("Dataset.Rdata")
 names(data)
-
-# We have XX columns in this dataset, each one explained below:
+ncol(data)
+# We have 30 columns in this dataset, each one explained below:
 # SpeciesName: Binomial name.
 # Genus: Taxonomic genus to which a species belongs.
 # Family: Txonomic family to which a species belongs.
@@ -123,17 +126,20 @@ summary(data[ , c("N.Specimens", "TaxaComparedExamined", "TaxaCompared",
 #world_map <- world_map %>% st_transform(crs = "+proj=eqearth") # change CRS to equal area
 #plot(world_map$geometry)
 
+# set local directory, change directory as needed
+local_directory <- file.path("D:/", "repos", "mammal_desc_trends", "shapefiles") 
+
 # Load shapefile of biogeographical realms
-wwf_realms<-sf::read_sf("~/Documents/Rasters and shapefiles/shapefiles/wwf_simplified.shp")  # change directory as needed
+wwf_realms<-sf::read_sf(file.path(local_directory, "wwf_simplified", "wwf_simplified.shp"))  
 wwf_realms <- wwf_realms %>% st_transform(crs = "+proj=eqearth") # change CRS to equal area
 plot(wwf_realms$geometry)
 
 # Load a shapefile depicting 'world limits'
-world_limit <- sf::st_read('~/Documents/Rasters and shapefiles/shapefiles/world_limit.shp')
+world_limit <- sf::st_read(file.path(local_directory, "world_limit", "world_limit.shp"))
 world_limit <- world_limit %>% st_transform(crs = "+proj=eqearth") # change CRS to equal area
 
 # Load the dataset, then convert the geographical coordinates to an sf object
-load("Dataset.Rdata") # 1032 species
+# load("Dataset.Rdata") # 1032 species
 points_sf <- sf::st_as_sf(data [ !is.na(data$Latitude) & ! is.na(data$Longitude) , c('SpeciesName', 'Latitude', 'Longitude')],
                           coords = c("Longitude", "Latitude"), crs = st_crs("+proj=longlat +datum=WGS84"))
 
@@ -403,27 +409,29 @@ names(mydata)
 #------------------------------------------------------------#
 
 # Select predictor variables to check for correlation
-cor(mydata[ , c("N_evidencesI", "N_evidencesII", "N.Pages", "N.Specimens", "TaxaCompared")], 
+cor(mydata[ , c("N_evidencesI", "N_evidencesII", "N.Pages", "N.Specimens", "TaxaCompared", "N.Countries")], 
     method = "spearman", use = "complete.obs")
-#            N_evidencesI N_evidencesII    N.Pages N.Specimens TaxaCompared
-# N_evidencesI    1.00000000     0.3447113 0.23460415  0.11371650   0.07578135
-# N_evidencesII   0.34471135     1.0000000 0.38294853  0.11116436   0.04969990
-# N.Pages         0.23460415     0.3829485 1.00000000  0.03461150   0.03847649
-# N.Specimens     0.11371650     0.1111644 0.03461150  1.00000000   0.07293227
-# TaxaCompared    0.07578135     0.0496999 0.03847649  0.07293227   1.00000000
-# low correlation among response variables (all below 0.4)
+# N_evidencesI N_evidencesII    N.Pages N.Specimens TaxaCompared N.Countries
+#N_evidencesI    1.00000000    0.34952539 0.23596197  0.11357590   0.07747519  0.01208026
+#N_evidencesII   0.34952539    1.00000000 0.38465652  0.11492334   0.05396673  0.11547902
+#N.Pages         0.23596197    0.38465652 1.00000000  0.03614598   0.04296941  0.05002470
+#N.Specimens     0.11357590    0.11492334 0.03614598  1.00000000   0.07105905  0.04690342
+#TaxaCompared    0.07747519    0.05396673 0.04296941  0.07105905   1.00000000  0.08262026
+#N.Countries     0.01208026    0.11547902 0.05002470  0.04690342   0.08262026  1.00000000
+# low correlation among response variables (all below 0.45)
 
 # Define custom labels
 custom_labels <- c("N_evidencesI" = "N. of evidence I",
                    "N_evidencesII" = "N. of evidence II",
                    "N.Pages" = "N. of pages",
                    "N.Specimens" = "N. of specimens",
-                   "TaxaCompared" = "N. taxa compared")
+                   "TaxaCompared" = "N. taxa compared",
+                   "N.Countries" = "N.Countries")
 
 # Create the ggpairs plot with custom labels
 p <- ggpairs(
   mydata, 
-  columns = c(27:28,26,23,25), 
+  columns = c(27:28,26,23,25, 9), 
   upper = list(continuous = wrap("cor", method = "spearman")),
   lower = list(continuous = wrap("points", alpha = 0.5)),
   diag = list(continuous = wrap("densityDiag", alpha = 0.5)),
@@ -448,7 +456,7 @@ rm(p) # clean workspace
 # Select response, explanatory (year), and grouping variables
 names(mydata)
 new_dat <- mydata[ , c("SpeciesName","Year","N_evidencesI", "N_evidencesII", 
-                       "N.Pages", "N.Specimens", "TaxaCompared")]
+                       "N.Pages", "N.Specimens", "TaxaCompared", "N.Countries")]
 
 # Get summary values for plotting
 yearly_means <- new_dat %>% 
@@ -471,13 +479,18 @@ yearly_means <- new_dat %>%
             
             N_taxacomp_avg = mean(TaxaCompared, na.rm = T),
             N_taxacomp_sd = sd(TaxaCompared, na.rm = T),
-            N_taxacomp_nspp = sum( ! is.na(TaxaCompared)) ) %>%
+            N_taxacomp_nspp = sum( ! is.na(TaxaCompared)),
+            
+            N_countries_avg = mean(N.Countries, na.rm = T),
+            N_countries_sd = sd(N.Countries, na.rm = T),
+            N_countries_nspp = sum( ! is.na(N.Countries)) ) %>%
   
   mutate(N_evidencesI_se = N_evidencesI_sd / sqrt(N_evidencesI_nspp),
          N_evidencesII_se = N_evidencesII_sd / sqrt(N_evidencesII_nspp),
          N_Pages_se = N_Pages_sd / sqrt(N_Pages_nspp),
          N_specimens_se = N_specimens_sd / sqrt(N_specimens_nspp),
-         N_taxacomp_se = N_taxacomp_sd / sqrt(N_taxacomp_nspp) )
+         N_taxacomp_se = N_taxacomp_sd / sqrt(N_taxacomp_nspp),
+         N_countries_se = N_countries_sd / sqrt (N_countries_nspp))
 
 ##  Check the % increase/decrease in robustness metrics between the 
 # first 5 years of the series (1990-94) and last 5-years (2018-22);
@@ -503,7 +516,10 @@ df90to94 <- apply(yearly_means[yearly_means$Year %in% 1990:1994, 'N_taxacomp_avg
 df18to22 <- apply(yearly_means[yearly_means$Year %in% 2018:2022, 'N_taxacomp_avg'], 2, mean)
 (df18to22 - df90to94) / df90to94 * 100 # from 4.13 to 6.27 (increased in 51.6%)
 
-
+# Number of countries involved
+df90to94 <- apply(yearly_means[yearly_means$Year %in% 1990:1994, 'N_countries_avg'], 2, mean)
+df18to22 <- apply(yearly_means[yearly_means$Year %in% 2018:2022, 'N_countries_avg'], 2, mean)
+(df18to22 - df90to94) / df90to94 * 100 # from 4.13 to 6.27 (increased in 84.8%)
 
 # Function to create the plot
 breaks = seq(from = 1990, to = 2022, by = 4)
@@ -547,22 +563,81 @@ figB <- create_plot(yearly_means, "N. of evidence II", mean = N_evidencesII_avg,
 figC <- create_plot(yearly_means, "N. of pages", mean = N_Pages_avg, se = N_Pages_se, 5); figC
 figD <- create_plot(yearly_means, "N. of specimens", mean = N_specimens_avg, se = N_specimens_se, 5); figD
 figE <- create_plot(yearly_means, "N. of taxa compared", mean = N_taxacomp_avg, se = N_taxacomp_se, 5); figE
+figF <- create_plot(yearly_means, "N. of countries involved", mean = N_countries_avg, se = N_countries_se, 5); figF
 
 # Add x-axis title
 figD <- figD + xlab("Year of description")
 figE <- figE + xlab("Year of description")
 
 # Arrange plots in a grid
-fig <- ggpubr::ggarrange(figA, figB, figC, figD, figE, ncol = 2, nrow = 3, 
+fig <- ggpubr::ggarrange(figA, figB, figC, figD, figE, figF, ncol = 2, nrow = 3, 
                          labels = "auto", font.label = list(size = 12, color = "black"), align = "hv"); fig
 
 # Export the figure:
 ggsave(paste0(getwd(), "/figures/Figure2.TemporalTrends.pdf"), plot=fig, width=7, height=9, units="in", dpi = "print", cairo_pdf)
 # This figure was exported to the software InkScape for minor aesthetic adjustments
-
 #####
 
-# 4) Temporal trends in robustness of publications - based on generalised linear models.
+# 4) Publication Robustness by Mammal Order
+##############################################################################################################
+# Get summary values for plotting
+# Select response, explanatory (year), and grouping variables
+names(mydata)
+new_dat <- mydata[ , c("SpeciesName","Order","N_evidencesI", "N_evidencesII", 
+                       "N.Pages", "N.Specimens", "TaxaCompared", "N.Countries")]
+
+# Supondo que seu dataframe se chame df
+df_long <- new_dat %>%
+  pivot_longer(cols = c("N_evidencesI", "N_evidencesII", "N.Pages", 
+                        "N.Specimens", "TaxaCompared", "N.Countries"),
+               names_to = "Variable",
+               values_to = "Value") %>%
+  group_by(Variable, Order) %>%
+  filter(!all(is.na(Value))) %>%
+  mutate(mediana = median(Value, na.rm = TRUE)) %>%
+  ungroup()
+
+plot_boxplot <- function(df_long, variable, title) {
+  plot <- df_long %>%
+    filter(Variable == variable) %>%
+    ggplot(aes(x = reorder(Order, -mediana), y = Value, fill = Order)) + 
+    #geom_violin(width = 1.4, , alpha=0.2) +
+    geom_boxplot(color="black", alpha=0.2) +
+    #geom_jitter(color="gray", size=0.4, alpha=0.9) +
+    coord_flip() +
+    theme_ipsum() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(size = 11),
+      axis.text.x = element_text(hjust = 1),
+      panel.grid = element_blank(),  
+      panel.background = element_blank(),  
+      axis.ticks = element_blank()  
+    ) + 
+    ggtitle(title) +
+    xlab("") + 
+    ylab("")
+}
+
+figA <- plot_boxplot(df_long, "N_evidencesI", "N. of evidence I"); figA
+figB <- plot_boxplot(df_long, "N_evidencesII", "N. of evidence II"); figB
+figC <- plot_boxplot(df_long, "N.Pages", "N. of pages"); figC
+figD <- plot_boxplot(df_long, "N.Specimens", "N. of specimens"); figD
+figE <- plot_boxplot(df_long, "TaxaCompared", "N. of taxa compared"); figE
+figF <- plot_boxplot(df_long, "N.Countries", "N. of countries involved"); figF
+
+# Arrange plots in a grid
+fig <- ggpubr::ggarrange(figA, figB, figC, figD, figE, figF,
+                         ncol = 2, nrow = 3, labels = "auto", 
+                         font.label = list(size = 12,color = "black"),
+                         align = "hv"); fig
+
+# Export the figure:
+ggsave(paste0(getwd(), "/figures/Figure2.OrderRobustness.pdf"),
+       plot=fig, width=14, height=18, units="in", dpi = "print", cairo_pdf)
+
+
+# 5) Temporal trends in robustness of publications - based on generalised linear models.
 ##############################################################################################################
 
 rm(list=setdiff(ls(),c("data"))); gc() # clean workspace
@@ -651,7 +726,6 @@ for (i in seq_along(vars)) {
 }
 
 # Combine the plots into a multi-panel plot using cowplot
-library(cowplot)
 multi_panel_plot <- plot_grid(plotlist = plot_list, ncol = 3, labels = 'auto', align = 'v',
                               label_size = 8); multi_panel_plot
 
@@ -929,7 +1003,7 @@ rm(list=setdiff(ls(),c("data","mydata","results"))); gc()
 
 #####
 
-# 5) Temporal trends in robustness of publications - based on GLMs - for bats and rodents.
+# 6) Temporal trends in robustness of publications - based on GLMs - for bats and rodents.
 ##############################################################################################################
 
 # As bats and rodents represent the most diverse orders, let's run GLMs separetely for them.
@@ -1469,7 +1543,7 @@ rm(list = ls()); gc()
 
 #####
 
-# 6) Create a plot with model coefficients and CI intervals.
+# 7) Create a plot with model coefficients and CI intervals.
 ##############################################################################################################
 
 # Load
@@ -1586,7 +1660,7 @@ ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs2.pdf"), plot=p, width=10, h
 
 #####
 
-# 7) Check phylogenetic correlation in model residuals.
+# 8) Check phylogenetic correlation in model residuals.
 ##############################################################################################################
 
 # Load additional packages
@@ -1967,7 +2041,7 @@ rm(list = ls()); gc() # clean workspace and garbage collection
 
 #####
 
-# 8) Explore temporal trends in the use of molecular data on reptile descriptions.
+# 9) Explore temporal trends in the use of molecular data on reptile descriptions.
 ##############################################################################################################
 
 # Load dataset

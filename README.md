@@ -1,9 +1,9 @@
 # Mammal Description Trends
 
 ## Motivation
+Approximately 1.8 million species have been described since the inception of the binomial nomenclature system by Linnaeus in 1758, yet most of the planet's species remain unknown to science. The description of a species is ultimately a scientific hypothesis, which can be revised, refuted, revalidated, and lead to changes in the prevailing taxonomy. While it is essential to accelerate species discovery to optimize conservation planning, the process of delimiting, naming, and classifying new species must be cautious to avoid unnecessary taxonomic instability. Mammals are relatively well-studied compared to amphibians and reptiles. Nevertheless, over 1,000 species of rodents and bats have been described since 1990. Understanding the factors that influence taxonomic robustness in newly discovered mammals can help establish quality taxonomic guidelines and reduce data (species) loss in conservation research.
 
-## Description of dataset
-
+## Description
 This dataset contains **30 columns**, each explained below:
 
 | **Column Name**         | **Description**                                                                                                           |
