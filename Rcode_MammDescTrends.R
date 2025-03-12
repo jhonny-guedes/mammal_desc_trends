@@ -118,6 +118,7 @@ summary(data[ , c("N.Specimens", "TaxaComparedExamined", "TaxaCompared",
 
 #####
 
+
 # 2) Map mammal species described in the last three decades
 ##############################################################################################################
 
@@ -455,126 +456,224 @@ rm(p) # clean workspace
 
 # Select response, explanatory (year), and grouping variables
 names(mydata)
-new_dat <- mydata[ , c("SpeciesName","Year","N_evidencesI", "N_evidencesII", 
+new_dat <- mydata[ , c("SpeciesName", "Order", "Year","N_evidencesI", "N_evidencesII",
                        "N.Pages", "N.Specimens", "TaxaCompared", "N.Countries")]
 
 # Get summary values for plotting
-yearly_means <- new_dat %>% 
-  group_by(Year) %>% 
-  summarise(N_evidencesI_avg = mean(N_evidencesI, na.rm = T),
-            N_evidencesI_sd = sd(N_evidencesI, na.rm = T),
-            N_evidencesI_nspp = sum( ! is.na(N_evidencesI)),
-            
-            N_evidencesII_avg = mean(N_evidencesII, na.rm = T),
-            N_evidencesII_sd = sd(N_evidencesII, na.rm = T),
-            N_evidencesII_nspp = sum( ! is.na(N_evidencesII)),
-            
-            N_Pages_avg = mean(N.Pages, na.rm = T),
-            N_Pages_sd = sd(N.Pages, na.rm = T),
-            N_Pages_nspp = sum( ! is.na(N.Pages)),
-            
-            N_specimens_avg = mean(N.Specimens, na.rm = T),
-            N_specimens_sd = sd(N.Specimens, na.rm = T),
-            N_specimens_nspp = sum( ! is.na(N.Specimens)),
-            
-            N_taxacomp_avg = mean(TaxaCompared, na.rm = T),
-            N_taxacomp_sd = sd(TaxaCompared, na.rm = T),
-            N_taxacomp_nspp = sum( ! is.na(TaxaCompared)),
-            
-            N_countries_avg = mean(N.Countries, na.rm = T),
-            N_countries_sd = sd(N.Countries, na.rm = T),
-            N_countries_nspp = sum( ! is.na(N.Countries)) ) %>%
-  
-  mutate(N_evidencesI_se = N_evidencesI_sd / sqrt(N_evidencesI_nspp),
-         N_evidencesII_se = N_evidencesII_sd / sqrt(N_evidencesII_nspp),
-         N_Pages_se = N_Pages_sd / sqrt(N_Pages_nspp),
-         N_specimens_se = N_specimens_sd / sqrt(N_specimens_nspp),
-         N_taxacomp_se = N_taxacomp_sd / sqrt(N_taxacomp_nspp),
-         N_countries_se = N_countries_sd / sqrt (N_countries_nspp))
+create_data <- function(data) {
+  yearly_means <- data %>% 
+    group_by(Year) %>% 
+    summarise(N_evidencesI_avg = mean(N_evidencesI, na.rm = T),
+              N_evidencesI_sd = sd(N_evidencesI, na.rm = T),
+              N_evidencesI_nspp = sum( ! is.na(N_evidencesI)),
+              
+              N_evidencesII_avg = mean(N_evidencesII, na.rm = T),
+              N_evidencesII_sd = sd(N_evidencesII, na.rm = T),
+              N_evidencesII_nspp = sum( ! is.na(N_evidencesII)),
+              
+              N_Pages_avg = mean(N.Pages, na.rm = T),
+              N_Pages_sd = sd(N.Pages, na.rm = T),
+              N_Pages_nspp = sum( ! is.na(N.Pages)),
+              
+              N_specimens_avg = mean(N.Specimens, na.rm = T),
+              N_specimens_sd = sd(N.Specimens, na.rm = T),
+              N_specimens_nspp = sum( ! is.na(N.Specimens)),
+              
+              N_taxacomp_avg = mean(TaxaCompared, na.rm = T),
+              N_taxacomp_sd = sd(TaxaCompared, na.rm = T),
+              N_taxacomp_nspp = sum( ! is.na(TaxaCompared)),
+              
+              N_countries_avg = mean(N.Countries, na.rm = T),
+              N_countries_sd = sd(N.Countries, na.rm = T),
+              N_countries_nspp = sum( ! is.na(N.Countries)) ) %>%
+    
+    mutate(N_evidencesI_se = N_evidencesI_sd / sqrt(N_evidencesI_nspp),
+           N_evidencesII_se = N_evidencesII_sd / sqrt(N_evidencesII_nspp),
+           N_Pages_se = N_Pages_sd / sqrt(N_Pages_nspp),
+           N_specimens_se = N_specimens_sd / sqrt(N_specimens_nspp),
+           N_taxacomp_se = N_taxacomp_sd / sqrt(N_taxacomp_nspp),
+           N_countries_se = N_countries_sd / sqrt (N_countries_nspp))
+  return(yearly_means)
+}
+
+all_yearly_means <- create_data(new_dat) %>%
+  mutate(Order = "All taxa")
+
+rodentia_yearly_means <- new_dat %>%
+  filter(Order == "Rodentia") %>%
+  create_data() %>%
+  mutate(Order = "Rodentia") 
+
+chiroptera_yearly_means <- new_dat %>%
+  filter(Order == "Chiroptera") %>%
+  create_data() %>%
+  mutate(Order = "Chiroptera")
 
 ##  Check the % increase/decrease in robustness metrics between the 
 # first 5 years of the series (1990-94) and last 5-years (2018-22);
 # this may avoid the impact of outliers if using a single year.
 
 # Number of evidence (non-equal weighted version as there are more variation in the data)
-df90to94 <- apply(yearly_means[yearly_means$Year %in% 1990:1994, 'N_evidencesI_avg'], 2, mean)
-df18to22 <- apply(yearly_means[yearly_means$Year %in% 2018:2022, 'N_evidencesI_avg'], 2, mean)
-(df18to22 - df90to94) / df90to94 * 100 # from 22.6 to 26.4 (increased in 17.1%)
+df90to94 <- apply(all_yearly_means[all_yearly_means$Year %in% 1990:1994, 'N_evidencesI_avg'], 2, mean)
+df18to22 <- apply(all_yearly_means[all_yearly_means$Year %in% 2018:2022, 'N_evidencesI_avg'], 2, mean)
+(df18to22 - df90to94) / df90to94 * 100 # from 22.3 to 26.4 (increased in 18.1%)
 
 # Number of pages
-df90to94 <- apply(yearly_means[yearly_means$Year %in% 1990:1994, 'N_Pages_avg'], 2, mean)
-df18to22 <- apply(yearly_means[yearly_means$Year %in% 2018:2022, 'N_Pages_avg'], 2, mean)
-(df18to22 - df90to94) / df90to94 * 100 # from 11.5 to 9.27 (decreased in 19.1%)
+df90to94 <- apply(all_yearly_means[all_yearly_means$Year %in% 1990:1994, 'N_Pages_avg'], 2, mean)
+df18to22 <- apply(all_yearly_means[all_yearly_means$Year %in% 2018:2022, 'N_Pages_avg'], 2, mean)
+(df18to22 - df90to94) / df90to94 * 100 # from 11.5 to 9.27 (decreased in 19.2%)
 
 # Number of specimens
-df90to94 <- apply(yearly_means[yearly_means$Year %in% 1990:1994, 'N_specimens_avg'], 2, mean)
-df18to22 <- apply(yearly_means[yearly_means$Year %in% 2018:2022, 'N_specimens_avg'], 2, mean)
-(df18to22 - df90to94) / df90to94 * 100 # from 13.1 to 22.3 (increased in 70.4%)
+df90to94 <- apply(all_yearly_means[all_yearly_means$Year %in% 1990:1994, 'N_specimens_avg'], 2, mean)
+df18to22 <- apply(all_yearly_means[all_yearly_means$Year %in% 2018:2022, 'N_specimens_avg'], 2, mean)
+(df18to22 - df90to94) / df90to94 * 100 # from 13.1 to 22.3 (increased in 69.9%)
 
 # Number of taxa compared
-df90to94 <- apply(yearly_means[yearly_means$Year %in% 1990:1994, 'N_taxacomp_avg'], 2, mean)
-df18to22 <- apply(yearly_means[yearly_means$Year %in% 2018:2022, 'N_taxacomp_avg'], 2, mean)
-(df18to22 - df90to94) / df90to94 * 100 # from 4.13 to 6.27 (increased in 51.6%)
+df90to94 <- apply(all_yearly_means[all_yearly_means$Year %in% 1990:1994, 'N_taxacomp_avg'], 2, mean)
+df18to22 <- apply(all_yearly_means[all_yearly_means$Year %in% 2018:2022, 'N_taxacomp_avg'], 2, mean)
+(df18to22 - df90to94) / df90to94 * 100 # from 4.13 to 6.27 (increased in 48.5%)
 
 # Number of countries involved
-df90to94 <- apply(yearly_means[yearly_means$Year %in% 1990:1994, 'N_countries_avg'], 2, mean)
-df18to22 <- apply(yearly_means[yearly_means$Year %in% 2018:2022, 'N_countries_avg'], 2, mean)
+df90to94 <- apply(all_yearly_means[all_yearly_means$Year %in% 1990:1994, 'N_countries_avg'], 2, mean)
+df18to22 <- apply(all_yearly_means[all_yearly_means$Year %in% 2018:2022, 'N_countries_avg'], 2, mean)
 (df18to22 - df90to94) / df90to94 * 100 # from 4.13 to 6.27 (increased in 84.8%)
+
+# Join correlations between Orders for plot
+yearly_means <- bind_rows(
+  all_yearly_means,
+  rodentia_yearly_means,
+  chiroptera_yearly_means
+)
 
 # Function to create the plot
 breaks = seq(from = 1990, to = 2022, by = 4)
-create_plot <- function(data, y_label, mean, se, total_tests) {
+create_plot <- function(data, y_label, mean, se, total_tests,
+                        show_titles = TRUE, show_x_labels = TRUE) {
   
-  # Calculate the correlation and uncorrected p-value
-  cor_test <- cor.test(data$Year, data[[rlang::as_label(enquo(mean))]], method = "spearman")
-  rho <- cor_test$estimate
-  p_value <- cor_test$p.value
+  # Definir cores para cada grupo
+  order_colors <- c("Rodentia" = "#386cb0",
+                    "Chiroptera" = "#7fc97f",
+                    "All taxa" = "black")
   
-  # Apply Bonferroni correction
-  bonferroni_p <- p_value * total_tests
+  # Calcular correlações
+  cor_results <- data %>%
+    group_by(Order) %>%
+    summarise(
+      rho = cor.test(Year, !!enquo(mean), method = "spearman")$estimate,
+      p_value = cor.test(Year, !!enquo(mean), method = "spearman")$p.value
+    ) %>%
+    mutate(
+      bonferroni_p = pmin(p_value * total_tests, 1),
+      bonferroni_p_label = ifelse(bonferroni_p < 0.001, "<0.001", format(round(bonferroni_p, 3), nsmall = 3))
+    )
   
-  # Ensure the corrected p-value does not exceed 1
-  bonferroni_p <- min(bonferroni_p, 1)
-  max_y <- max(data[[rlang::as_name(enquo(mean))]], na.rm = TRUE) # for plotting
+  # Preparar breaks e labels do eixo X
+  years <- sort(unique(data$Year))  # Anos únicos e ordenados
+  n_years <- length(years)
   
-  # Create the plot
-  p <- ggplot(data, aes(x = Year, y = !!enquo(mean))) + 
-    geom_pointrange(aes(ymin = !!enquo(mean) - !!enquo(se), ymax = !!enquo(mean) + !!enquo(se)), 
-                    size = 0.3, alpha = 0.9) +
-    geom_smooth(method = "lm", fullrange = FALSE, col = 'grey50', fill = 'grey50', alpha = 0.4) +
-    xlab(NULL) + ylab(y_label) +
-    scale_x_continuous(breaks = breaks) +
-    theme(panel.grid.minor = element_blank(),
-          panel.grid.major = element_blank(),
-          panel.background = element_blank(),
-          axis.title = element_text(size=10, face="bold"),
-          axis.line = element_line(colour="black"),
-          axis.text = element_text(size=8, colour = "black")) +
-    # Show the correlation coefficient and Bonferroni-corrected p-value
-    annotate("text", x = min(data$Year, na.rm = TRUE), y = max_y,
-             label = paste("rs =", round(rho, 3), "\nBonferroni p =", format(bonferroni_p, digits = 3)), 
-             hjust = 0, vjust = 1.5, size = 3, color = 'black')
+  # Definir 4 breaks (usando anos existentes)
+  if (n_years > 4) {
+    idx <- round(seq(1, n_years, length.out = 4))  # Índices para 4 anos equidistantes
+    x_breaks <- years[idx]
+  } else {
+    x_breaks <- years  # Menos de 4 anos: usar todos
+  }
+  
+  # Definir labels (se show_x_labels = TRUE)
+  x_labels <- if (show_x_labels) {
+    as.character(x_breaks)
+  } else {
+    rep("", length(x_breaks))  # Labels vazios
+  }
+  
+  # Criar o gráfico
+  p <- ggplot(data, aes(x = Year, y = !!enquo(mean), color = Order)) + 
+    geom_pointrange(aes(
+      ymin = !!enquo(mean) - !!enquo(se), 
+      ymax = !!enquo(mean) + !!enquo(se)),
+      size = 0.3, alpha = 0.9
+    ) +
+    geom_smooth(method = "lm", fullrange = FALSE, aes(fill = Order), alpha = 0.2) +
+    xlab(NULL) + 
+    ylab(y_label) +
+    scale_x_continuous(
+      breaks = x_breaks,  # 4 ticks baseados nos anos
+      labels = x_labels,  # Labels controlados por show_x_labels
+      expand = expansion(mult = 0.02)  # Reduz espaço nas bordas
+    ) +
+    scale_color_manual(values = order_colors) +
+    scale_fill_manual(values = order_colors) +
+    theme_minimal() +
+    theme(
+      panel.grid.minor = element_blank(),
+      panel.grid.major = element_blank(),
+      axis.title = element_text(size = 10, face = "bold"),
+      axis.line = element_line(colour = "black"),
+      axis.ticks.x = element_line(),  # Garante ticks visíveis
+      axis.text = element_text(size = 8, colour = "black"),
+      axis.text.x = element_text(
+        angle = 0, 
+        hjust = 0.6, 
+        vjust = 0  # Ajuste fino para alinhamento
+      ),
+      legend.position = "none",
+      strip.text = element_text(size = ifelse(show_titles, 10, 0))
+    ) +
+    facet_wrap(~Order, scale = "free_y") +
+    geom_text(
+      data = cor_results,
+      aes(
+        x = min(data$Year, na.rm = TRUE), 
+        y = Inf, 
+        label = paste("rs =", round(rho, 3), "\nBonferroni p =", bonferroni_p_label)
+      ),
+      hjust = 0, vjust = 1.5, size = 3, color = "black", inherit.aes = FALSE
+    )
+  
   return(p)
 }
 
 # Create plots for each variable and taxonomic order
-figA <- create_plot(yearly_means, "N. of evidence I", mean = N_evidencesI_avg, se = N_evidencesI_se, 5); figA
-figB <- create_plot(yearly_means, "N. of evidence II", mean = N_evidencesII_avg, se = N_evidencesII_se, 5); figB
-figC <- create_plot(yearly_means, "N. of pages", mean = N_Pages_avg, se = N_Pages_se, 5); figC
-figD <- create_plot(yearly_means, "N. of specimens", mean = N_specimens_avg, se = N_specimens_se, 5); figD
-figE <- create_plot(yearly_means, "N. of taxa compared", mean = N_taxacomp_avg, se = N_taxacomp_se, 5); figE
-figF <- create_plot(yearly_means, "N. of countries involved", mean = N_countries_avg, se = N_countries_se, 5); figF
+figA <- create_plot(yearly_means, "N. of evidence I", 
+                    mean = N_evidencesI_avg,
+                    se = N_evidencesI_se, 5,
+                    show_titles = TRUE, show_x_labels = FALSE); figA
+figB <- create_plot(yearly_means, "N. of evidence II",
+                    mean = N_evidencesII_avg, 
+                    se = N_evidencesII_se, 5,
+                    show_titles = TRUE, show_x_labels = FALSE); figB
+figC <- create_plot(yearly_means, "N. of pages",
+                    mean = N_Pages_avg,
+                    se = N_Pages_se, 5,
+                    show_titles = FALSE, show_x_labels = FALSE); figC
+figD <- create_plot(yearly_means, "N. of specimens",
+                    mean = N_specimens_avg, 
+                    se = N_specimens_se, 5,
+                    show_titles = FALSE, show_x_labels = FALSE); figD
+figE <- create_plot(yearly_means, "N. of taxa compared",
+                    mean = N_taxacomp_avg,
+                    se = N_taxacomp_se, 5, 
+                    show_titles = FALSE, show_x_labels = TRUE); figE
+figF <- create_plot(yearly_means, "N. of countries involved",
+                    mean = N_countries_avg, 
+                    se = N_countries_se, 5, 
+                    show_titles = FALSE, show_x_labels = TRUE); figF
 
 # Add x-axis title
-figD <- figD + xlab("Year of description")
 figE <- figE + xlab("Year of description")
+figF <- figF + xlab("Year of description")
 
 # Arrange plots in a grid
-fig <- ggpubr::ggarrange(figA, figB, figC, figD, figE, figF, ncol = 2, nrow = 3, 
-                         labels = "auto", font.label = list(size = 12, color = "black"), align = "hv"); fig
+fig <- ggpubr::ggarrange(figA, figB, figC, figD, figE, figF,
+                         ncol = 2, nrow = 3, 
+                         labels = "auto",
+                         font.label = list(size = 12, color = "black"),
+                         align = "hv"); fig
 
 # Export the figure:
-ggsave(paste0(getwd(), "/figures/Figure2.TemporalTrends.pdf"), plot=fig, width=7, height=9, units="in", dpi = "print", cairo_pdf)
+ggsave(paste0(getwd(), "/figures/Figure2.TemporalTrends.pdf"),
+       plot=fig, width=14, height=8, units="in", dpi = "print", cairo_pdf)
+
 # This figure was exported to the software InkScape for minor aesthetic adjustments
 #####
 
