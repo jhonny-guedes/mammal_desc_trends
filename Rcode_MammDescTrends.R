@@ -45,10 +45,10 @@ setwd() # DEFINE YOUR WORKING DIRECTORY (THE FOLDER WITH FILES NEEDED TO REPLICA
 ##############################################################################################################
 
 # Load the dataset
-#data <- fread("Dataset.csv", na.strings = '') # 3905 species
+#data <- fread("Dataset.csv", na.strings = '') # 1032 species
 load("Dataset.Rdata")
 names(data)
-ncol(data)
+dim(data)
 # We have 30 columns in this dataset, each one explained below:
 # SpeciesName: Binomial name.
 # Genus: Taxonomic genus to which a species belongs.
@@ -81,7 +81,10 @@ ncol(data)
 
 
 # Check the number of species per Order
-data %>% dplyr::group_by(Order) %>% dplyr::summarise(n = n()) %>% arrange(desc(n))
+data %>% 
+  dplyr::group_by(Order) %>%
+  dplyr::summarise(n = n()) %>%
+  arrange(desc(n))
 # Order                n
 # Rodentia           421
 # Chiroptera         280
@@ -107,6 +110,7 @@ data %>% dplyr::group_by(Order) %>% dplyr::summarise(n = n()) %>% arrange(desc(n
 names(data)
 summary(data[ , c("N.Specimens", "TaxaComparedExamined", "TaxaCompared", 
                   "N.Pages", "N_evidencesI", "N_evidencesII")])
+
 # N.Specimens     TaxaComparedExamined  TaxaCompared       N.Pages         N_evidencesI   N_evidencesII  
 # Min.   :  1.00   Min.   : 1.000       Min.   : 0.000   Min.   :  0.230   Min.   : 1.00   Min.   :1.000  
 # 1st Qu.:  3.00   1st Qu.: 3.000       1st Qu.: 2.000   1st Qu.:  4.300   1st Qu.:18.00   1st Qu.:4.000  
@@ -116,8 +120,21 @@ summary(data[ , c("N.Specimens", "TaxaComparedExamined", "TaxaCompared",
 # Max.   :409.00   Max.   :77.000       Max.   :77.000   Max.   :179.000   Max.   :96.00   Max.   :8.000  
 # NA's   :60       NA's   :148          NA's   :51       NA's   :56        NA's   :37      NA's   :37 
 
-#####
+# Only rodentia
+summary(
+  data[data$Order == "Rodentia" ,
+       c("N.Specimens", "TaxaComparedExamined", "TaxaCompared", 
+         "N.Pages", "N_evidencesI", "N_evidencesII")]
+)
 
+# Only Chiroptera
+summary(
+  data[data$Order == "Chiroptera" ,
+       c("N.Specimens", "TaxaComparedExamined", "TaxaCompared", 
+                    "N.Pages", "N_evidencesI", "N_evidencesII")]
+)
+
+#####
 
 # 2) Map mammal species described in the last three decades
 ##############################################################################################################
@@ -514,28 +531,31 @@ chiroptera_yearly_means <- new_dat %>%
 # this may avoid the impact of outliers if using a single year.
 
 # Number of evidence (non-equal weighted version as there are more variation in the data)
-df90to94 <- apply(all_yearly_means[all_yearly_means$Year %in% 1990:1994, 'N_evidencesI_avg'], 2, mean)
-df18to22 <- apply(all_yearly_means[all_yearly_means$Year %in% 2018:2022, 'N_evidencesI_avg'], 2, mean)
+taxa <- all_yearly_means #para nao precisar repetir o codigo abaixo,
+# so mudar o obj passado para 'taxa'. 
+
+df90to94 <- apply(taxa[taxa$Year %in% 1990:1994, 'N_evidencesI_avg'], 2, mean)
+df18to22 <- apply(taxa[taxa$Year %in% 2018:2022, 'N_evidencesI_avg'], 2, mean)
 (df18to22 - df90to94) / df90to94 * 100 # from 22.3 to 26.4 (increased in 18.1%)
 
 # Number of pages
-df90to94 <- apply(all_yearly_means[all_yearly_means$Year %in% 1990:1994, 'N_Pages_avg'], 2, mean)
-df18to22 <- apply(all_yearly_means[all_yearly_means$Year %in% 2018:2022, 'N_Pages_avg'], 2, mean)
+df90to94 <- apply(taxa[taxa$Year %in% 1990:1994, 'N_Pages_avg'], 2, mean)
+df18to22 <- apply(taxa[taxa$Year %in% 2018:2022, 'N_Pages_avg'], 2, mean)
 (df18to22 - df90to94) / df90to94 * 100 # from 11.5 to 9.27 (decreased in 19.2%)
 
 # Number of specimens
-df90to94 <- apply(all_yearly_means[all_yearly_means$Year %in% 1990:1994, 'N_specimens_avg'], 2, mean)
-df18to22 <- apply(all_yearly_means[all_yearly_means$Year %in% 2018:2022, 'N_specimens_avg'], 2, mean)
+df90to94 <- apply(taxa[taxa$Year %in% 1990:1994, 'N_specimens_avg'], 2, mean)
+df18to22 <- apply(taxa[taxa$Year %in% 2018:2022, 'N_specimens_avg'], 2, mean)
 (df18to22 - df90to94) / df90to94 * 100 # from 13.1 to 22.3 (increased in 69.9%)
 
 # Number of taxa compared
-df90to94 <- apply(all_yearly_means[all_yearly_means$Year %in% 1990:1994, 'N_taxacomp_avg'], 2, mean)
-df18to22 <- apply(all_yearly_means[all_yearly_means$Year %in% 2018:2022, 'N_taxacomp_avg'], 2, mean)
+df90to94 <- apply(taxa[taxa$Year %in% 1990:1994, 'N_taxacomp_avg'], 2, mean)
+df18to22 <- apply(taxa[taxa$Year %in% 2018:2022, 'N_taxacomp_avg'], 2, mean)
 (df18to22 - df90to94) / df90to94 * 100 # from 4.13 to 6.27 (increased in 48.5%)
 
 # Number of countries involved
-df90to94 <- apply(all_yearly_means[all_yearly_means$Year %in% 1990:1994, 'N_countries_avg'], 2, mean)
-df18to22 <- apply(all_yearly_means[all_yearly_means$Year %in% 2018:2022, 'N_countries_avg'], 2, mean)
+df90to94 <- apply(taxa[taxa$Year %in% 1990:1994, 'N_countries_avg'], 2, mean)
+df18to22 <- apply(taxa[taxa$Year %in% 2018:2022, 'N_countries_avg'], 2, mean)
 (df18to22 - df90to94) / df90to94 * 100 # from 4.13 to 6.27 (increased in 84.8%)
 
 # Join correlations between Orders for plot
@@ -2140,14 +2160,28 @@ rm(list = ls()); gc() # clean workspace and garbage collection
 
 #####
 
-# 9) Explore temporal trends in the use of molecular data on reptile descriptions.
-##############################################################################################################
+# 9) Explore temporal trends in the use of molecular data on Mammal description.
+################################################################################
 
 # Load dataset
-mydata <- fread("Dataset.csv", na.strings = '')
+#mydata <- fread("Dataset.csv", na.strings = '')
+load("Dataset.Rdata")
+names(data)
+dim(data)
 
-summary(mydata$Molecular) # 37 NAs
-mydata <- mydata[ ! is.na(mydata$Molecular) , ] # remove species without data (NAs)
+mydata <- data
+summary(mydata$Molecular) # 30 NAs
+table(mydata$Molecular)
+
+mydata <- mydata %>%
+  filter(!is.na(Molecular)) %>%
+  mutate(MolMethod = na_if(MolMethod, ""),
+         MolMethod = case_when(
+           MolMethod == "Allozyme" ~ "Allozymes",  # padroniza para "Allozymes"
+           TRUE ~ MolMethod  
+         )) %>% 
+  mutate(TaxonomicReview = replace_na(TaxonomicReview, 0))
+
 levels(as.factor(mydata$MolMethod)) # 13 levels
 
 # Count the number of description per molecular method
@@ -2210,9 +2244,11 @@ ggsave(paste0(getwd(), "/figures/Figure3.MolecularMethods.tiff"), plot=final_plo
 
 
 ### Plot the proportion of species described with molecular data per taxa ###
-
 levels(as.factor(mydata$Molecular))
 mydata$Molecular <- ifelse(mydata$Molecular==1, yes = 'yes', no = 'no')
+
+levels(as.factor(mydata$TaxonomicReview))
+mydata$TaxonomicReview <- ifelse(mydata$TaxonomicReview==1, yes = 'yes', no = 'no')
 
 # Get basic statists
 prop_mol <- mydata %>% 
@@ -2223,6 +2259,11 @@ prop_mol <- mydata %>%
 mol_per_family <- mydata %>% 
   group_by(Order, Family) %>%
   count(Molecular) %>% 
+  mutate(prop = prop.table(n)) # prop = n/sum(n) works too
+
+prop_rev <- mydata %>% 
+  group_by(Order) %>%
+  count(TaxonomicReview) %>% 
   mutate(prop = prop.table(n)) # prop = n/sum(n) works too
 
 # Save table
@@ -2243,20 +2284,22 @@ SppRichness <- mydata %>%
 SppRichness <- as.data.frame(SppRichness) # convert to dataframe
 
 p <- mydata %>%
+  left_join(SppRichness[,c("Order", "nTot")], by = "Order") %>%
+  mutate(Order = paste0(Order, "\n(n=", nTot, ")"),
   # convert variable to factor, ordered (descending) by the proportion of rows where order == "no"
-  mutate(Order = fct_reorder(.f = Order, 
+    Order = fct_reorder(.f = Order, 
                              .x = as.factor(Molecular),
                              .fun = function(.x) mean(.x == "no"),
                              .desc = TRUE)) %>%
   ggplot(aes(x = Order, fill = as.factor(Molecular))) +
   geom_bar(position = "fill") +
   geom_hline(yintercept = .5, linetype = "dashed", color = "grey50") +
-  
+  coord_flip()+
   # set bar colours per order
-  scale_fill_manual(values = c("#fee090", "#fdae61")) +
+  scale_fill_manual(values = c("white", "#fdae61")) +
   
   # define y-axis values
-  scale_y_continuous(breaks = seq(0, 1, .5), expand = expansion(mult = c(0, .1))) +
+  scale_y_continuous(breaks = seq(0, 1, .25), expand = expansion(mult = c(0, .1))) +
   
   # define axis titles
   labs(y = "Proportion of species described\nwith molecular data", x = "Taxonomic order") +
@@ -2268,19 +2311,206 @@ p <- mydata %>%
         axis.title = element_text(size = 10, face = "bold"),
         axis.line = element_line(colour = "black"),
         axis.text = element_text(size = 8, colour = "black"),
-        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
-        legend.position = "none") +
+        axis.text.x = element_text(angle = 0, hjust = 1, vjust = 1),
+        legend.position = "none");p# +
   
   # Add text displaying total number of species per family
-  geom_text(data = SppRichness,
-            aes(x = Order, y = 1.03, label = nTot),
-            size = 2.5, angle = 45, color = "black", hjust = 0.5, vjust = 0.5); p
+  #geom_text(data = SppRichness,
+  #          aes(x = Order, y = 1.03, label = nTot),
+  #          size = 2.5, angle = 0, color = "black", hjust = 0.5, vjust = 0.5); p 
 
-# Save the figure
-ggsave(paste0(getwd(), "/figures/Figure4.PropMolecularByTaxa.pdf"), plot=p, width=8, height=5, units="in", dpi = "print", cairo_pdf)
-ggsave(paste0(getwd(), "/figures/Figure4.PropMolecularByTaxa.jpg"), plot=p, width=8, height=5, units="in", dpi = "print")
-ggsave(paste0(getwd(), "/figures/Figure4.PropMolecularByTaxa.tiff"), plot=p, width=8, height=5, units="in", dpi = "print")
+m <- mydata %>%
+  # convert variable to factor, ordered (descending) by the proportion of rows where order == "no"
+  left_join(SppRichness[,c("Order", "nTot")], by = "Order") %>%
+  mutate(Order = paste0(Order, "\n(n=", nTot, ")"),
+         # convert variable to factor, ordered (descending) by the proportion of rows where order == "no"
+         Order = fct_reorder(.f = Order, 
+                             .x = as.factor(TaxonomicReview),
+                             .fun = function(.x) mean(.x == "no"),
+                             .desc = TRUE)) %>%
+  ggplot(aes(x = Order, fill = as.factor(TaxonomicReview))) +
+  geom_bar(position = "fill") +
+  geom_hline(yintercept = .5, linetype = "dashed", color = "grey50") +
+  coord_flip()+
+  # set bar colours per order
+  scale_fill_manual(values = c("white", "#fdae61")) +
+  
+  # define y-axis values
+  scale_y_continuous(breaks = seq(0, 1, .25), expand = expansion(mult = c(0, .1))) +
+  
+  # define axis titles
+  labs(y = "Proportion of species described\nwith taxonomic review", x = "") +
+  
+  # apply themes
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        axis.title = element_text(size = 10, face = "bold"),
+        axis.line = element_line(colour = "black"),
+        axis.text = element_text(size = 8, colour = "black"),
+        axis.text.x = element_text(angle = 0, hjust = 1, vjust = 1),
+        legend.position = "none") 
+
+# Arrange plots in a grid
+fig <- ggpubr::ggarrange(p, m,
+                         ncol = 2, nrow = 1, 
+                         labels = "auto",
+                         font.label = list(size = 12, color = "black"),
+                         align = "hv"); fig
+
+# Export the figure:
+ggsave(paste0(getwd(), "/figures/Figure4.PropMolecularByTaxa.pdf"),
+       plot=fig, width=11, height=6, units="in", dpi = "print", cairo_pdf)
+
+ggsave(paste0(getwd(), "/figures/Figure4.PropMolecularByTaxa.jpg"),
+       plot=fig, width=11, height=6, units="in", dpi = "print")
+
+ggsave(paste0(getwd(), "/figures/Figure4.PropMolecularByTaxa.tiff"), 
+       plot=fig, width=11, height=6, units="in", dpi = "print")
 
 rm(list = ls()); gc()
+
+# Relationship internacional description vs. molecular&taxonomicreview
+mydata <- mydata %>%
+  mutate(TypeOfStudy = paste(TaxonomicReview, Molecular, sep = "_")) %>%
+  mutate(TypeOfStudy = case_when(
+    TypeOfStudy == "no_no"  ~ "Other evidences",
+    TypeOfStudy == "no_yes" ~ "Molecular",
+    TypeOfStudy == "yes_yes" ~ "Taxonomic Review \n+ Molecular",
+    TypeOfStudy == "yes_no" ~ "Taxonomic Review",
+    TRUE ~ TypeOfStudy  # mantém o valor original caso não se enquadre em nenhum caso
+  )) 
+
+# Definir os pares para comparação (cada grupo comparado entre si)
+comparisons <- list(
+  c("Taxonomic Review \n+ Molecular", "Molecular"),
+  c("Taxonomic Review \n+ Molecular", "Taxonomic Review"),
+  c("Taxonomic Review \n+ Molecular", "Other evidences"),
+  c("Molecular", "Taxonomic Review"),
+  c("Molecular", "Other evidences"),
+  c("Taxonomic Review", "Other evidences")
+)
+
+# Criar o gráfico com os testes estatísticos entre grupos
+plot <- mydata %>%
+  mutate(TypeOfStudy = factor(TypeOfStudy,
+                              levels = c("Taxonomic Review \n+ Molecular",
+                                         "Molecular",
+                                         "Taxonomic Review",
+                                         "Other evidences"))) %>%
+  ggplot(aes(x = TypeOfStudy, y = N.Countries)) +
+  geom_violin(width = 0.8, fill = "black", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
+  geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
+  
+  # Comparações entre pares - espaçamento ajustado
+  stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
+                     tip.length = 0.02, label.y = c(15, 16.5, 17.5, 18.5, 19.5, 20.5)) +
+  
+  # Teste global (Kruskal-Wallis) um pouco acima
+  stat_compare_means(method = "kruskal.test",label.x = .75, label.y = 22) +
+  
+  labs(
+    title = "",
+    x = "",
+    y = "N. of countries involved"
+  ) +
+  scale_y_continuous(limits = c(0, 25), expand = expansion(add = c(0, 0.05))) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    axis.text.x = element_text(size = 12, color = "black"),
+    axis.text.y = element_text(size = 12, color = "black"),
+    panel.grid.major = element_line(color = "grey80"),
+    panel.grid.minor = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_line(color = "black")
+  ) ; plot
+
+plot_rodentia <- mydata %>%
+  filter(Order == "Rodentia") %>%
+  mutate(TypeOfStudy = factor(TypeOfStudy,
+                              levels = c("Taxonomic Review \n+ Molecular",
+                                         "Molecular",
+                                         "Taxonomic Review",
+                                         "Other evidences"))) %>%
+  ggplot(aes(x = TypeOfStudy, y = N.Countries)) +
+  geom_violin(width = 0.8, fill = "#386cb0", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
+  geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
+  
+  # Comparações entre pares - espaçamento ajustado
+  stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
+                     tip.length = 0.02, label.y = c(15, 16.5, 17.5, 18.5, 19.5, 20.5)) +
+  
+  # Teste global (Kruskal-Wallis) um pouco acima
+  stat_compare_means(method = "kruskal.test",label.x = .75, label.y = 22) +
+  
+  labs(
+    title = "",
+    x = "",
+    y = ""
+  ) +
+  scale_y_continuous(limits = c(0, 25), expand = expansion(add = c(0, 0.05))) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    axis.text.x = element_text(size = 12, color = "black"),
+    axis.text.y = element_text(size = 12, color = "black"),
+    panel.grid.major = element_line(color = "grey80"),
+    panel.grid.minor = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_line(color = "black")
+  ) ; plot_rodentia
+
+plot_bat <- mydata %>%
+  filter(Order == "Chiroptera") %>%
+  mutate(TypeOfStudy = factor(TypeOfStudy,
+                              levels = c("Taxonomic Review \n+ Molecular",
+                                         "Molecular",
+                                         "Taxonomic Review",
+                                         "Other evidences"))) %>%
+  ggplot(aes(x = TypeOfStudy, y = N.Countries)) +
+  geom_violin(width = 0.8, fill = "#7fc97f", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
+  geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
+  
+  # Comparações entre pares - espaçamento ajustado
+  stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
+                     tip.length = 0.02, label.y = c(15, 16.5, 17.5, 18.5, 19.5, 20.5)) +
+  
+  # Teste global (Kruskal-Wallis) um pouco acima
+  stat_compare_means(method = "kruskal.test",label.x = .75, label.y = 22) +
+  
+  labs(
+    title = "",
+    x = "",
+    y = ""
+  ) +
+  scale_y_continuous(limits = c(0, 25), expand = expansion(add = c(0, 0.05))) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    axis.text.x = element_text(size = 12, color = "black"),
+    axis.text.y = element_text(size = 12, color = "black"),
+    panel.grid.major = element_line(color = "grey80"),
+    panel.grid.minor = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_line(color = "black")
+  ) ; plot_bat
+
+fig <- ggpubr::ggarrange(plot, plot_bat, plot_rodentia, 
+                         ncol = 3, nrow = 1, 
+                         labels = "auto",
+                         font.label = list(size = 12, color = "black"),
+                         align = "hv"); fig
+
+# Export the figure:
+ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.pdf"),
+       plot=fig, width=20, height=5, units="in", dpi = "print", cairo_pdf)
+ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.jpg"),
+       plot=fig, width=20, height=5, units="in", dpi = "print")
+ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.tiff"), 
+       plot=fig, width=20, height=5, units="in", dpi = "print")
 
 #### END OF THE SCRIPT ####
