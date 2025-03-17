@@ -2374,53 +2374,53 @@ rm(list = ls()); gc()
 mydata <- mydata %>%
   mutate(TypeOfStudy = paste(TaxonomicReview, Molecular, sep = "_")) %>%
   mutate(TypeOfStudy = case_when(
-    TypeOfStudy == "no_no"  ~ "Other evidences",
+    TypeOfStudy == "no_no"  ~ "Other \nevidences",
     TypeOfStudy == "no_yes" ~ "Molecular",
-    TypeOfStudy == "yes_yes" ~ "Taxonomic Review \n+ Molecular",
-    TypeOfStudy == "yes_no" ~ "Taxonomic Review",
+    TypeOfStudy == "yes_yes" ~ "Taxonomic \nReview \n+ Molecular",
+    TypeOfStudy == "yes_no" ~ "Taxonomic \nReview",
     TRUE ~ TypeOfStudy  # mantém o valor original caso não se enquadre em nenhum caso
   )) 
 
 # Definir os pares para comparação (cada grupo comparado entre si)
 comparisons <- list(
-  c("Taxonomic Review \n+ Molecular", "Molecular"),
-  c("Taxonomic Review \n+ Molecular", "Taxonomic Review"),
-  c("Taxonomic Review \n+ Molecular", "Other evidences"),
-  c("Molecular", "Taxonomic Review"),
-  c("Molecular", "Other evidences"),
-  c("Taxonomic Review", "Other evidences")
+  c("Taxonomic \nReview \n+ Molecular", "Molecular"),
+  c("Taxonomic \nReview \n+ Molecular", "Taxonomic \nReview"),
+  c("Taxonomic \nReview \n+ Molecular", "Other \nevidences"),
+  c("Molecular", "Taxonomic \nReview"),
+  c("Molecular", "Other \nevidences"),
+  c("Taxonomic \nReview", "Other \nevidences")
 )
 
 # Criar o gráfico com os testes estatísticos entre grupos
 plot <- mydata %>%
   mutate(TypeOfStudy = factor(TypeOfStudy,
-                              levels = c("Taxonomic Review \n+ Molecular",
+                              levels = c("Taxonomic \nReview \n+ Molecular",
                                          "Molecular",
-                                         "Taxonomic Review",
-                                         "Other evidences"))) %>%
+                                         "Taxonomic \nReview",
+                                         "Other \nevidences"))) %>%
   ggplot(aes(x = TypeOfStudy, y = N.Countries)) +
   geom_violin(width = 0.8, fill = "black", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
   geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
   
-  # Comparações entre pares - espaçamento ajustado
   stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
-                     tip.length = 0.02, label.y = c(15, 16.5, 17.5, 18.5, 19.5, 20.5)) +
+                     tip.length = 0.02, label.y = c(13.1, 14.4, 15.6, 16.9, 18.1, 18.4), size = 6) +  # Ajuste o size conforme necessário
   
   # Teste global (Kruskal-Wallis) um pouco acima
-  stat_compare_means(method = "kruskal.test",label.x = .75, label.y = 22) +
+  stat_compare_means(method = "kruskal.test", label.x = .75, label.y = 19, size = 5)+  # Ajuste o size conforme necessário
   
   labs(
     title = "",
     x = "",
     y = "N. of countries involved"
   ) +
-  scale_y_continuous(limits = c(0, 25), expand = expansion(add = c(0, 0.05))) +
+  scale_y_continuous(limits = c(0, 20), breaks = c(5, 10, 15), expand = expansion(add = c(0, .5))) +
   theme_minimal() +
   theme(
+    axis.title.y = element_text(size = 18, face = "bold"), 
     legend.position = "none",
-    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
-    axis.text.x = element_text(size = 12, color = "black"),
-    axis.text.y = element_text(size = 12, color = "black"),
+    #plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    axis.text.x = element_text(size = 16, color = "black"),
+    axis.text.y = element_text(size = 16, color = "black"),
     panel.grid.major = element_line(color = "grey80"),
     panel.grid.minor = element_blank(),
     axis.ticks = element_blank(),
@@ -2430,33 +2430,33 @@ plot <- mydata %>%
 plot_rodentia <- mydata %>%
   filter(Order == "Rodentia") %>%
   mutate(TypeOfStudy = factor(TypeOfStudy,
-                              levels = c("Taxonomic Review \n+ Molecular",
+                              levels = c("Taxonomic \nReview \n+ Molecular",
                                          "Molecular",
-                                         "Taxonomic Review",
-                                         "Other evidences"))) %>%
+                                         "Taxonomic \nReview",
+                                         "Other \nevidences"))) %>%
   ggplot(aes(x = TypeOfStudy, y = N.Countries)) +
   geom_violin(width = 0.8, fill = "#386cb0", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
   geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
   
-  # Comparações entre pares - espaçamento ajustado
   stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
-                     tip.length = 0.02, label.y = c(15, 16.5, 17.5, 18.5, 19.5, 20.5)) +
+                     tip.length = 0.02, label.y = c(13.1, 14.4, 15.6, 16.9, 18.1, 18.4), size = 6) +  # Ajuste o size conforme necessário
   
   # Teste global (Kruskal-Wallis) um pouco acima
-  stat_compare_means(method = "kruskal.test",label.x = .75, label.y = 22) +
+  stat_compare_means(method = "kruskal.test", label.x = .75, label.y = 19, size = 5)+  # Ajuste o size conforme necessário
   
   labs(
     title = "",
     x = "",
     y = ""
   ) +
-  scale_y_continuous(limits = c(0, 25), expand = expansion(add = c(0, 0.05))) +
+  scale_y_continuous(limits = c(0, 20), breaks = c(5, 10, 15), expand = expansion(add = c(0, .5))) +
   theme_minimal() +
   theme(
     legend.position = "none",
-    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
-    axis.text.x = element_text(size = 12, color = "black"),
-    axis.text.y = element_text(size = 12, color = "black"),
+    plot.margin=unit(c(t = 0, r = 0, b = 0, l = 0), "cm"),
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    axis.text.x = element_text(size = 16, color = "black"),
+    axis.text.y = element_blank(),
     panel.grid.major = element_line(color = "grey80"),
     panel.grid.minor = element_blank(),
     axis.ticks = element_blank(),
@@ -2466,33 +2466,34 @@ plot_rodentia <- mydata %>%
 plot_bat <- mydata %>%
   filter(Order == "Chiroptera") %>%
   mutate(TypeOfStudy = factor(TypeOfStudy,
-                              levels = c("Taxonomic Review \n+ Molecular",
+                              levels = c("Taxonomic \nReview \n+ Molecular",
                                          "Molecular",
-                                         "Taxonomic Review",
-                                         "Other evidences"))) %>%
+                                         "Taxonomic \nReview",
+                                         "Other \nevidences"))) %>%
   ggplot(aes(x = TypeOfStudy, y = N.Countries)) +
   geom_violin(width = 0.8, fill = "#7fc97f", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
   geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
   
-  # Comparações entre pares - espaçamento ajustado
   stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
-                     tip.length = 0.02, label.y = c(15, 16.5, 17.5, 18.5, 19.5, 20.5)) +
+                     tip.length = 0.02, label.y = c(13.1, 14.4, 15.6, 16.9, 18.1, 18.4), size = 6) +  # Ajuste o size conforme necessário
   
   # Teste global (Kruskal-Wallis) um pouco acima
-  stat_compare_means(method = "kruskal.test",label.x = .75, label.y = 22) +
+  stat_compare_means(method = "kruskal.test", label.x = .75, label.y = 19, size = 5)+  # Ajuste o size conforme necessário
   
   labs(
     title = "",
     x = "",
     y = ""
   ) +
-  scale_y_continuous(limits = c(0, 25), expand = expansion(add = c(0, 0.05))) +
+  scale_y_continuous(limits = c(0, 20), breaks = c(5, 10, 15), expand = expansion(add = c(0, .5))) +
   theme_minimal() +
   theme(
+    plot.margin=unit(c(t = 0, r = 0, b = 0, l = 0), "cm"),
+    #plot.margin = margin(5, 5, 5, 5, unit = "pt"),
     legend.position = "none",
-    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
-    axis.text.x = element_text(size = 12, color = "black"),
-    axis.text.y = element_text(size = 12, color = "black"),
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    axis.text.x = element_text(size = 16, color = "black"),
+    axis.text.y = element_blank(),
     panel.grid.major = element_line(color = "grey80"),
     panel.grid.minor = element_blank(),
     axis.ticks = element_blank(),
@@ -2502,15 +2503,15 @@ plot_bat <- mydata %>%
 fig <- ggpubr::ggarrange(plot, plot_bat, plot_rodentia, 
                          ncol = 3, nrow = 1, 
                          labels = "auto",
-                         font.label = list(size = 12, color = "black"),
-                         align = "hv"); fig
+                         font.label = list(size = 16, color = "black"),
+                         align = "hv");fig  # Proporções de largura entre colunas); fig
 
 # Export the figure:
 ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.pdf"),
-       plot=fig, width=20, height=5, units="in", dpi = "print", cairo_pdf)
+       plot=fig, width=20, height=6, units="in", dpi = "print", cairo_pdf)
 ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.jpg"),
-       plot=fig, width=20, height=5, units="in", dpi = "print")
+       plot=fig, width=20, height=6, units="in", dpi = "print")
 ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.tiff"), 
-       plot=fig, width=20, height=5, units="in", dpi = "print")
+       plot=fig, width=20, height=6, units="in", dpi = "print")
 
 #### END OF THE SCRIPT ####
