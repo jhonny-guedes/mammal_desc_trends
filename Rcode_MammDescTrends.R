@@ -1785,6 +1785,8 @@ ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs2.pdf"), plot=p, width=10, h
 # Load additional packages
 needed_packages <- c('foreach', # for looping construct (package version 1.5.2)
                      'doParallel', # for parallel computing (v. 1.0.17)
+                     'fuzzyjoin',
+                     'tidyverse',
                      # for phylogenetic analysis:
                      'geiger', # (v. 2.0.10)
                      'phytools', # (v. 1.2.0)
@@ -1803,23 +1805,24 @@ mydata$SpeciesName <- stringr::str_trim(mydata$SpeciesName) # remove whitespaces
 
 # Download the Squamata phylogenetic trees from Tonini et al. 2016; https://doi.org/10.1016/j.biocon.2016.03.039
 # then load it (the file to download is named squam_shl_new_Posterior_9755.1000.trees)
-squa_tree<-ape::read.tree('squam_shl_new_Posterior_9755.1000.trees')
+mammal_tree <- ape::read.nexus(
+  'phylogeny/output.nex')
 
 # Randonly select 100 trees 
-set.seed(123) # Set seed for reproducibility
-squa_tree <- sample(squa_tree, 100) # select trees
+#set.seed(123) # Set seed for reproducibility
+#squa_tree <- sample(squa_tree, 100) # select trees
 #ape::write.tree(squa_tree, file = 'Squam_100trees.tree') # save trees 
 #squa_tree<-ape::read.tree('Squam_100trees.tree')
 
 # Standardize scientific names
-for (i in seq_along(squa_tree)) {
-  squa_tree[[i]]$tip.label <- stringr::str_to_sentence(squa_tree[[i]]$tip.label)
-  squa_tree[[i]]$tip.label <- gsub(' ', '_', squa_tree[[i]]$tip.label) 
-  squa_tree[[i]]$tip.label <- stringr::str_trim(squa_tree[[i]]$tip.label)
+for (i in seq_along(mammal_tree)) {
+  mammal_tree[[i]]$tip.label <- stringr::str_to_sentence(mammal_tree[[i]]$tip.label)
+  mammal_tree[[i]]$tip.label <- gsub(' ', '_', mammal_tree[[i]]$tip.label) 
+  mammal_tree[[i]]$tip.label <- stringr::str_trim(mammal_tree[[i]]$tip.label)
 }
 
 # Use fuzzy logic to find name mismatches due to minor misspellings
-spp_on_tree <- squa_tree[[1]]$tip.label
+spp_on_tree <- mammal_tree[[1]]$tip.label
 spp_on_data <- mydata$SpeciesName
 
 diff_tree <- as.data.frame(setdiff(spp_on_tree, spp_on_data)) 
@@ -1837,7 +1840,7 @@ fuzzy_match <- stringdist_join(diff_mydata, diff_tree,
 fuzzy_match <- arrange(fuzzy_match, dist) # arrange by increasing value
 fuzzy_match <- fuzzy_match[ ! fuzzy_match$dist > 0.07, ]; print(fuzzy_match) # 45 species
 # Remove species that are not the same
-fuzzy_match <- fuzzy_match[ - c(4,5,8,9,11,14:16,18:29,31:32,34:38,40,42:45) , ] 
+fuzzy_match <- fuzzy_match[ - c(10:13) , ] 
 # 13 species to fix names that are written slightly different but represent the same species
 spp_to_fix <- c(t(fuzzy_match[ , 'SpeciesName.x'])) # store misspelled species name into a vector 
 corrected_spp <- c(t(fuzzy_match[ , 'SpeciesName.y']))
@@ -1853,12 +1856,31 @@ mydata <- as.data.frame(mydata)
 rownames(mydata) <- mydata[ , 'SpeciesName']
 
 # Load model residuals, then create distinct datasets for each response to account for NAs
-load("mod.evi.I.Rdata") ; evi_residsI <- resid(mod.evi)
-load("mod.evi.II.Rdata") ; evi_residsII <- resid(mod.evi.II)
-load("mod.ts.Rdata") ; ts_resids <- resid(mod.ts)
-load("mod.pages.Rdata") ; pag_resids <- resid(mod.pages)
+# evidence I
+load("model_outputs/mod.evi.I.Rdata") ; evi_residsI <- resid(mod.evi.nb)
+load("model_outputs/mod.evi.I.bats.Rdata") ; evi_residsI_bats <- resid(mod.evi.nb)
+load("model_outputs/mod.evi.I.rodents.Rdata") ; evi_residsI_rodents <- resid(mod.evi.gau)
+# evidence II
+load("model_outputs/mod.evi.II.Rdata") ; evi_residsII <- resid(mod.evi2.gau)
+load("model_outputs/mod.evi.II.bats.Rdata") ; evi_residsII_bats <- resid(mod.evi2.gau)
+load("model_outputs/mod.evi.II.rodents.Rdata") ; evi_residsII_rodents <- resid(mod.evi2.gau)
+# Pages
+load("model_outputs/mod.pages.Rdata") ; pag_resids <- resid(mod.pages)
+load("model_outputs/mod.pages.bats.Rdata") ; pag_resids_bats <- resid(mod.pages)
+load("model_outputs/mod.pages.rodents.Rdata") ; pag_resids_rodents <- resid(mod.pages)
+# N. Specimens
+load("model_outputs/mod.ts.Rdata") ; ts_resids <- resid(mod.ts)
+load("model_outputs/mod.ts.bats.Rdata") ; ts_resids_bats <- resid(mod.ts)
+load("model_outputs/mod.ts.rodents.Rdata") ; ts_resids_rodents <- resid(mod.ts)
+# Taxa compared
+load("model_outputs/mod.tcom.Rdata") ; tcom_resids <- resid(mod.tcom)
+load("model_outputs/mod.tcom.bats.Rdata") ; tcom_resids_bats <- resid(mod.tcom)
+load("model_outputs/mod.tcom.rodents.Rdata") ; tcom_resids_rodents <- resid(mod.tcom)
 
 evi_datI <- as.data.frame(cbind( mydata[ ! is.na(mydata$N_evidencesI) , ], evi_residsI)); rm(mod.evi, evi_residsI)
+evi_datI_bats <- as.data.frame(cbind( mydata[ ! is.na(mydata$N_evidencesI) , ], evi_residsI_bats)); rm(mod.evi, evi_residsI_bats)
+evi_datI_rodents <- as.data.frame(cbind( mydata[ ! is.na(mydata$N_evidencesI) , ], evi_residsI_rodents)); rm(mod.evi, evi_residsI_rodents)
+
 evi_datII <- as.data.frame(cbind( mydata[ ! is.na(mydata$N_evidencesII) , ], evi_residsII)); rm(mod.evi.II, evi_residsII)
 ts_dat <- as.data.frame(cbind( mydata[ ! is.na(mydata$N.TypeSeries) , ], ts_resids)); rm(mod.ts, ts_resids)
 pages_dat <- as.data.frame(cbind( mydata[ ! is.na(mydata$N.Pages) , ], pag_resids)); rm(mod.pages, pag_resids)
