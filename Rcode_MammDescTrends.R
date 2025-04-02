@@ -1787,6 +1787,7 @@ needed_packages <- c('foreach', # for looping construct (package version 1.5.2)
                      'doParallel', # for parallel computing (v. 1.0.17)
                      'fuzzyjoin',
                      'tidyverse',
+                     'data.table',
                      # for phylogenetic analysis:
                      'geiger', # (v. 2.0.10)
                      'phytools', # (v. 1.2.0)
@@ -1969,7 +1970,7 @@ getDoParWorkers()
 }
 
 # Extract the average correlogram output across iterations:
-PhyCorr_evi_I<-as.data.table(rbindlist(PhyCorr_evi_I))
+PhyCorr_evi_I<- as.data.table(rbindlist(PhyCorr_evi_I))
 AvgPhyCorr_evi_I<-PhyCorr_evi_I[, .(Distance=mean(dist.class, na.rm=T),
                                     Lower_CI=mean(lower_ci, na.rm=T),
                                     Upper_CI=mean(upper_ci, na.rm=T),
