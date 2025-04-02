@@ -755,6 +755,7 @@ fig <- ggpubr::ggarrange(figA, figB, figC, figD, figE, figF,
 ggsave(paste0(getwd(), "/figures/Figure2.OrderRobustness.pdf"),
        plot=fig, width=14, height=18, units="in", dpi = "print", cairo_pdf)
 
+#####
 
 # 5) Temporal trends in robustness of publications - based on generalised linear models.
 ##############################################################################################################
@@ -2847,6 +2848,7 @@ AvgPhyCorr_tcom_rodents<-PhyCorr_tcom_rodents[, .(Distance=mean(dist.class, na.r
 save(PhyCorr_tcom_rodents, AvgPhyCorr_tcom_rodents, file="PhyloCorr/PhyloCorr_tcom_rodents.Rdata")
 rm(tcom_dat_rodents, PhyCorr_tcom_rodents, AvgPhyCorr_tcom_rodents) # clean workspace
 
+#####
 
 # 9) Make phylogenetic correlograms.
 ##############################################################################################################
@@ -2855,17 +2857,38 @@ rm(tcom_dat_rodents, PhyCorr_tcom_rodents, AvgPhyCorr_tcom_rodents) # clean work
 ################# ALL MAMMALS COMBINED #####################-
 
 # Load data
+# All mammals
 load('PhyloCorr/PhyloCorr_evi_I.Rdata')
 load('PhyloCorr/PhyloCorr_evi_II.Rdata')
 load('PhyloCorr/PhyloCorr_ts.Rdata')
 load('PhyloCorr/PhyloCorr_pages.Rdata')
 load('PhyloCorr/PhyloCorr_tcom.Rdata')
+# Bats
+load('PhyloCorr/PhyloCorr_evi_I_bats.Rdata')
+load('PhyloCorr/PhyloCorr_evi_II_bats.Rdata')
+load('PhyloCorr/PhyloCorr_ts_bats.Rdata')
+load('PhyloCorr/PhyloCorr_pages_bats.Rdata')
+load('PhyloCorr/PhyloCorr_tcom_bats.Rdata')
+# Rodents
+load('PhyloCorr/PhyloCorr_evi_I_rodents.Rdata')
+load('PhyloCorr/PhyloCorr_evi_II_rodents.Rdata')
+load('PhyloCorr/PhyloCorr_ts_rodents.Rdata')
+load('PhyloCorr/PhyloCorr_pages_rodents.Rdata')
+load('PhyloCorr/PhyloCorr_tcom_rodents.Rdata')
 
 # Combine and create column to differentiate responses
-Corr_list <- list(AvgPhyCorr_evi_I, AvgPhyCorr_evi_II, AvgPhyCorr_ts, AvgPhyCorr_pages)
+# Run one at a time
+# All mammals
+Corr_list <- list(AvgPhyCorr_evi_I, AvgPhyCorr_evi_II, AvgPhyCorr_ts, AvgPhyCorr_pages, AvgPhyCorr_tcom)
+# Bats
+Corr_list <- list(AvgPhyCorr_evi_I_bats, AvgPhyCorr_evi_II_bats,
+                  AvgPhyCorr_ts_bats, AvgPhyCorr_pages_bats, AvgPhyCorr_tcom_bats)
+# Rodents
+Corr_list <- list(AvgPhyCorr_evi_I_rodents, AvgPhyCorr_evi_II_rodents,
+                  AvgPhyCorr_ts_rodents, AvgPhyCorr_pages_rodents, AvgPhyCorr_tcom_rodents)
 
 # Create a vector to add a new column informing the region in the datasets
-response <- c('N. evidence I', 'N. evidence II', 'N. preserved\nspecimens', 'N. pages')
+response <- c('N. evidence I', 'N. evidence II', 'N. preserved\nspecimens', 'N. pages', 'N. taxa\ncompared')
 
 for (i in seq_along(Corr_list)) {
   Corr_list[[i]]$Response <- response[i]
@@ -2898,14 +2921,14 @@ MyCorrelogram <- ggplot(Corr_list, aes(x = Distance, y = MoranI_coef, colour = R
         panel.spacing=unit(0,"null")); MyCorrelogram
 
 # Save to disk
-ggsave(paste0(getwd(), "/figures/FigureS2.PhyloCorrelogram.pdf"), plot=MyCorrelogram, width=5, height=4, units="in", bg = 'transparent', dpi = "print")
-ggsave(paste0(getwd(), "/figures/FigureS2.PhyloCorrelogram.jpg"), plot=MyCorrelogram, width=5, height=4, units="in", bg = 'white', dpi = "print")
+ggsave(paste0(getwd(), "/figures/FigureS2.PhyloCorrelogram_rodents.pdf"), plot=MyCorrelogram, width=5, height=4, units="in", bg = 'transparent', dpi = "print")
+ggsave(paste0(getwd(), "/figures/FigureS2.PhyloCorrelogram_rodents.jpg"), plot=MyCorrelogram, width=5, height=4, units="in", bg = 'white', dpi = "print")
 
 rm(list = ls()); gc() # clean workspace and garbage collection
 
 #####
 
-# 9) Explore temporal trends in the use of molecular data on Mammal description.
+# 10) Explore temporal trends in the use of molecular data on Mammal description.
 ################################################################################
 
 # Load dataset
