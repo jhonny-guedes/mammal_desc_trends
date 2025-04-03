@@ -427,7 +427,7 @@ names(mydata)
 #------------------------------------------------------------#
 
 # Select predictor variables to check for correlation
-cor(mydata[ , c("N_evidencesI", "N_evidencesII", "N.Pages", "N.Specimens", "TaxaCompared", "N.Countries")], 
+cor(mydata[ , c("N_evidencesI", "N_evidencesII", "N.Pages", "N.Specimens", "TaxaCompared")], 
     method = "spearman", use = "complete.obs")
 # N_evidencesI N_evidencesII    N.Pages N.Specimens TaxaCompared N.Countries
 #N_evidencesI    1.00000000    0.34952539 0.23596197  0.11357590   0.07747519  0.01208026
@@ -443,13 +443,12 @@ custom_labels <- c("N_evidencesI" = "N. of evidence I",
                    "N_evidencesII" = "N. of evidence II",
                    "N.Pages" = "N. of pages",
                    "N.Specimens" = "N. of specimens",
-                   "TaxaCompared" = "N. taxa compared",
-                   "N.Countries" = "N.Countries")
+                   "TaxaCompared" = "N. taxa compared")
 
 # Create the ggpairs plot with custom labels
 p <- ggpairs(
   mydata, 
-  columns = c(27:28,26,23,25, 9), 
+  columns = c(27:28,26,23,25), 
   upper = list(continuous = wrap("cor", method = "spearman")),
   lower = list(continuous = wrap("points", alpha = 0.5)),
   diag = list(continuous = wrap("densityDiag", alpha = 0.5)),
