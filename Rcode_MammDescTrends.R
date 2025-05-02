@@ -17,7 +17,9 @@ needed_packages <- c("tidyverse", # package version 2.0.0
                      'sf',
                      'raster',
                      'GGally',
-                     'cowplot'
+                     'cowplot',
+                     'ggpubr',
+                     'rstatix'
                      
 )
 new.packages<-needed_packages[!(needed_packages %in% installed.packages()[,"Package"])]
@@ -105,20 +107,22 @@ data %>%
 # Microbiotheria       1
 # Monotremata          1
 
+table(data$Order)
+prop.table(table(data$Order)) * 100
 
 # Check amounts of missing data among response variables and get other basic stats
 names(data)
+
+# All mammals
 summary(data[ , c("N.Specimens", "TaxaComparedExamined", "TaxaCompared", 
                   "N.Pages", "N_evidencesI", "N_evidencesII")])
 
-# N.Specimens     TaxaComparedExamined  TaxaCompared       N.Pages         N_evidencesI   N_evidencesII  
-# Min.   :  1.00   Min.   : 1.000       Min.   : 0.000   Min.   :  0.230   Min.   : 1.00   Min.   :1.000  
-# 1st Qu.:  3.00   1st Qu.: 3.000       1st Qu.: 2.000   1st Qu.:  4.300   1st Qu.:18.00   1st Qu.:4.000  
-# Median :  8.00   Median : 5.000       Median : 4.000   Median :  7.375   Median :24.00   Median :5.000  
-# Mean   : 19.67   Mean   : 6.712       Mean   : 5.576   Mean   :  9.817   Mean   :24.31   Mean   :4.928  
-# 3rd Qu.: 20.00   3rd Qu.: 8.000       3rd Qu.: 7.000   3rd Qu.: 11.262   3rd Qu.:29.00   3rd Qu.:6.000  
-# Max.   :409.00   Max.   :77.000       Max.   :77.000   Max.   :179.000   Max.   :96.00   Max.   :8.000  
-# NA's   :60       NA's   :148          NA's   :51       NA's   :56        NA's   :37      NA's   :37 
+# Mammals without rodents and bats
+summary(
+  data[data$Order != "Chiroptera" & data$Order != "Rodentia",
+       c("N.Specimens", "TaxaComparedExamined", "TaxaCompared", 
+         "N.Pages", "N_evidencesI", "N_evidencesII")]
+)
 
 # Only rodentia
 summary(
@@ -134,7 +138,7 @@ summary(
                     "N.Pages", "N_evidencesI", "N_evidencesII")]
 )
 
-#####
+
 
 # 2) Map mammal species described in the last three decades
 ##############################################################################################################
@@ -335,11 +339,11 @@ for(i in 1:nlevels(as.factor(PropPerRealm$wwf_realm))) {
     # Text labels based on condition
     {
       if (i == 3) { # Global level; add Order names
-        geom_text(aes(x = 2, label = paste0(scales::percent(Prop), "\n", NewOrder)), 
-                  position = position_stack(vjust = 0.5), size = 1.7)
+        geom_text(aes(x = 2, label = paste0(scales::percent(Prop, accuracy = 1), "\n", NewOrder)), 
+                  position = position_stack(vjust = 0.5), size = 2.8, fontface = "bold")
       } else { # Other realms; only display percentage
-        geom_text(aes(x = 2, label = scales::percent(Prop)), 
-                  position = position_stack(vjust = 0.5), size = 1.7)
+        geom_text(aes(x = 2, label = scales::percent(Prop, accuracy = 1)), 
+                  position = position_stack(vjust = 0.5), size = 2.8, fontface = "bold")
       }
     } +
     
@@ -361,7 +365,7 @@ for(i in 1:nlevels(as.factor(PropPerRealm$wwf_realm))) {
     coord_polar(theta = "y") +
     
     # Create a hole in the center (adjust xlim for size of hole)
-    xlim(0.5, 3) +
+    xlim(0.5, 2.7) +
     
     # Define axis and theme aesthetics
     labs(x = "", y = "") +
@@ -376,7 +380,7 @@ for(i in 1:nlevels(as.factor(PropPerRealm$wwf_realm))) {
 }
 
 # Print each plot if desired
-print(MyPlot[[4]])
+print(MyPlot[[3]])
 
 # Set the biogeographical realm illustrated in each plot:
 names(MyPlot) <- levels(as.factor(PropPerRealm$wwf_realm))
@@ -395,14 +399,14 @@ add_donut <- function(donut_plot, x_pos, y_pos, donut_size) {
 }
 
 # Plot map and add donuts
-FinalPlot <- MyMap +
+FinalPlot <- MyMap2 +
   add_donut(MyPlot[["Nearctic"]], x_pos = -13067530, y_pos = -7342217 + 11200000, donut_size = 2400000) +
   add_donut(MyPlot[["Neotropic"]], -8500530, -7342217 + 2400000, 2300000) +
   add_donut(MyPlot[["Palearctic"]], -3500000, -7342217 + 11200000, 2400000) +
   add_donut(MyPlot[["Afrotropic"]], -1000000, -7342217 + 4200000, 2400000) +
   add_donut(MyPlot[["IndoMalay"]], 14000530, -7342217 + 10000000, 2400000) +
   add_donut(MyPlot[["Australasia"]], 8000000, -7342217 + 4200000, 2400000) +
-  add_donut(MyPlot[["Global"]], -13500530, -7342217 + 5400000, 4000000)
+  add_donut(MyPlot[["Global"]], -13500530, -7342217 + 5400000, 4000000); FinalPlot
 
 ggsave(filename="figures/Figure1_Map.png", plot=FinalPlot, width=12, height=8, units="in", bg="white", limitsize=F)
 ggsave(filename="figures/Figure1_Map.pdf", plot=FinalPlot, width=12, height=8, units="in", bg="white", limitsize=F)
@@ -427,7 +431,7 @@ names(mydata)
 #------------------------------------------------------------#
 
 # Select predictor variables to check for correlation
-cor(mydata[ , c("N_evidencesI", "N_evidencesII", "N.Pages", "N.Specimens", "TaxaCompared")], 
+cor(mydata[ , c("N_evidencesII", "N.Pages", "N.Specimens", "TaxaCompared")], 
     method = "spearman", use = "complete.obs")
 # N_evidencesI N_evidencesII    N.Pages N.Specimens TaxaCompared N.Countries
 #N_evidencesI    1.00000000    0.34952539 0.23596197  0.11357590   0.07747519  0.01208026
@@ -439,8 +443,7 @@ cor(mydata[ , c("N_evidencesI", "N_evidencesII", "N.Pages", "N.Specimens", "Taxa
 # low correlation among response variables (all below 0.45)
 
 # Define custom labels
-custom_labels <- c("N_evidencesI" = "N. of evidence I",
-                   "N_evidencesII" = "N. of evidence II",
+custom_labels <- c("N_evidencesII" = "N. of evidence",
                    "N.Pages" = "N. of pages",
                    "N.Specimens" = "N. of specimens",
                    "TaxaCompared" = "N. taxa compared")
@@ -448,7 +451,7 @@ custom_labels <- c("N_evidencesI" = "N. of evidence I",
 # Create the ggpairs plot with custom labels
 p <- ggpairs(
   mydata, 
-  columns = c(27:28,26,23,25), 
+  columns = c(28,26,23,25), 
   upper = list(continuous = wrap("cor", method = "spearman")),
   lower = list(continuous = wrap("points", alpha = 0.5)),
   diag = list(continuous = wrap("densityDiag", alpha = 0.5)),
@@ -513,17 +516,22 @@ create_data <- function(data) {
 }
 
 all_yearly_means <- create_data(new_dat) %>%
-  mutate(Order = "All taxa")
+  mutate(Order = "All mammals")
 
 rodentia_yearly_means <- new_dat %>%
   filter(Order == "Rodentia") %>%
   create_data() %>%
-  mutate(Order = "Rodentia") 
+  mutate(Order = "Rodents") 
 
 chiroptera_yearly_means <- new_dat %>%
   filter(Order == "Chiroptera") %>%
   create_data() %>%
-  mutate(Order = "Chiroptera")
+  mutate(Order = "Bats")
+
+allwithout_yearly_means <- new_dat %>%
+  filter(Order != "Chiroptera" & Order != "Rodentia") %>%
+  create_data() %>%
+  mutate(Order = "Non-rodents & non-bats")
 
 ##  Check the % increase/decrease in robustness metrics between the 
 # first 5 years of the series (1990-94) and last 5-years (2018-22);
@@ -561,17 +569,25 @@ df18to22 <- apply(taxa[taxa$Year %in% 2018:2022, 'N_countries_avg'], 2, mean)
 yearly_means <- bind_rows(
   all_yearly_means,
   rodentia_yearly_means,
-  chiroptera_yearly_means
-)
+  chiroptera_yearly_means,
+  allwithout_yearly_means
+) %>%
+  mutate(Order = factor(Order, levels = c(
+    "All mammals",
+    "Non-rodents & non-bats",
+    "Bats",
+    "Rodents"
+  ))) 
 
 # Function to create the plot
 breaks = seq(from = 1990, to = 2022, by = 4)
-create_plot <- function(data, y_label, mean, se, total_tests,
+create_plot <- function(data, y_label, mean, se, total_tests, nrow = nrow,
                         show_titles = TRUE, show_x_labels = TRUE) {
   
   # Definir cores para cada grupo
-  order_colors <- c("Rodentia" = "#386cb0",
-                    "Chiroptera" = "#7fc97f",
+  order_colors <- c("Rodents" = "#386cb0",
+                    "Bats" = "#7fc97f",
+                    "Non-rodents & non-bats" = "#ff3352",
                     "All taxa" = "black")
   
   # Calcular correlações
@@ -638,7 +654,7 @@ create_plot <- function(data, y_label, mean, se, total_tests,
       legend.position = "none",
       strip.text = element_text(size = ifelse(show_titles, 10, 0))
     ) +
-    facet_wrap(~Order, scale = "free_y") +
+    facet_wrap(~Order, scale = "free_y", nrow = nrow) +
     geom_text(
       data = cor_results,
       aes(
@@ -653,45 +669,52 @@ create_plot <- function(data, y_label, mean, se, total_tests,
 }
 
 # Create plots for each variable and taxonomic order
-figA <- create_plot(yearly_means, "N. of evidence I", 
-                    mean = N_evidencesI_avg,
-                    se = N_evidencesI_se, 5,
-                    show_titles = TRUE, show_x_labels = FALSE); figA
-figB <- create_plot(yearly_means, "N. of evidence II",
+figB <- create_plot(yearly_means, "N. of evidence", #  II
                     mean = N_evidencesII_avg, 
-                    se = N_evidencesII_se, 5,
+                    se = N_evidencesII_se, 5, nrow = 1,
                     show_titles = TRUE, show_x_labels = FALSE); figB
 figC <- create_plot(yearly_means, "N. of pages",
                     mean = N_Pages_avg,
-                    se = N_Pages_se, 5,
+                    se = N_Pages_se, 5, nrow = 1,
                     show_titles = FALSE, show_x_labels = FALSE); figC
 figD <- create_plot(yearly_means, "N. of specimens",
                     mean = N_specimens_avg, 
-                    se = N_specimens_se, 5,
+                    se = N_specimens_se, 5, nrow = 1,
                     show_titles = FALSE, show_x_labels = FALSE); figD
 figE <- create_plot(yearly_means, "N. of taxa compared",
                     mean = N_taxacomp_avg,
-                    se = N_taxacomp_se, 5, 
+                    se = N_taxacomp_se, 5, nrow = 1,
                     show_titles = FALSE, show_x_labels = TRUE); figE
-figF <- create_plot(yearly_means, "N. of countries involved",
-                    mean = N_countries_avg, 
-                    se = N_countries_se, 5, 
-                    show_titles = FALSE, show_x_labels = TRUE); figF
-
-# Add x-axis title
 figE <- figE + xlab("Year of description")
-figF <- figF + xlab("Year of description")
+
+#figA <- create_plot(yearly_means, "N. of evidence I", 
+#                    mean = N_evidencesI_avg,
+#                    se = N_evidencesI_se, 5,
+#                    show_titles = TRUE, show_x_labels = FALSE); figA
+# Add x-axis title
 
 # Arrange plots in a grid
-fig <- ggpubr::ggarrange(figA, figB, figC, figD, figE, figF,
-                         ncol = 2, nrow = 3, 
-                         labels = "auto",
-                         font.label = list(size = 12, color = "black"),
-                         align = "hv"); fig
-
+#fig <- ggpubr::ggarrange(figB, figC, figD, figE,
+#                         ncol = 1, nrow = 4, 
+#                         labels = "auto",
+#                         font.label = list(size = 12, color = "black"),
+#                         align = "hv"); fig
+fig <- cowplot::plot_grid(figB, figC, figD, figE,
+                          ncol = 1, nrow = 4, labels = "auto"); fig
 # Export the figure:
 ggsave(paste0(getwd(), "/figures/Figure2.TemporalTrends.pdf"),
-       plot=fig, width=14, height=8, units="in", dpi = "print", cairo_pdf)
+       plot=fig, width=12, height=10, units="in", dpi = "print", cairo_pdf)
+
+# Join figure with section
+figF <- create_plot(yearly_means, "N. of countries involved",
+                    mean = N_countries_avg, 
+                    se = N_countries_se, 5, nrow = 4,
+                    show_titles = FALSE, show_x_labels = TRUE); figF
+
+figF <- figF + xlab("Year of description"); FigF
+
+ggsave(paste0(getwd(), "/figures/FigureAux.Nofcountries.pdf"),
+ plot=figF, width=4, height=10, units="in", dpi = "print", cairo_pdf)
 
 # This figure was exported to the software InkScape for minor aesthetic adjustments
 #####
@@ -2929,7 +2952,6 @@ rm(list = ls()); gc() # clean workspace and garbage collection
 
 # 10) Explore temporal trends in the use of molecular data on Mammal description.
 ################################################################################
-
 # Load dataset
 #mydata <- fread("Dataset.csv", na.strings = '')
 load("Dataset.Rdata")
@@ -2978,16 +3000,39 @@ p <- ggplot(df, aes(x = as.factor(Year), y = Count, fill = MolMethod)) +
         legend.margin = margin(t = 0.5, r = 0.5, b = 0.5, l = 0.5, unit = "lines"),  # Reduce margin around the legend
         legend.position = 'right'); p
 
-# Calculate the proportion of species with Molecular == 1 per year
-df_prop <- mydata[ ! is.na(mydata$Molecular) , ] %>%
+df_prop <- mydata %>%
+  filter(!is.na(Molecular)) %>%
   group_by(Year, Molecular) %>%
   summarise(n = n()) %>%
   mutate(prop = n / sum(n))
 
-# Plot the proportion per year with a fitted line for both lizards and snakes
-inset <- ggplot(df_prop[ df_prop$Molecular==1 , ], aes(x = Year, y = prop)) +
-  geom_point(size = 1, alpha = 0.5) +
-  geom_smooth(method = "loess", se = FALSE, linewidth = 0.5, color = "black") + # Change method to "lm" for linear model
+df_prop_without <- mydata %>%
+  filter(!is.na(Molecular)) %>%
+  filter(Order != "Rodentia" & Order != "Chiroptera") %>%
+  group_by(Year, Molecular) %>%
+  summarise(n = n()) %>%
+  mutate(prop = n / sum(n))
+
+df_prop_bats <- mydata %>%
+  filter(!is.na(Molecular)) %>%
+  filter(Order == "Chiroptera") %>%
+  group_by(Year, Molecular) %>%
+  summarise(n = n()) %>%
+  mutate(prop = n / sum(n))
+
+df_prop_rodents <- mydata %>%
+  filter(!is.na(Molecular)) %>%
+  filter(Order == "Rodentia") %>%
+  group_by(Year, Molecular) %>%
+  summarise(n = n()) %>%
+  mutate(prop = n / sum(n))
+
+# all mammals 
+inset <- df_prop %>%
+  filter(Molecular == 1) %>%
+  ggplot(aes(x = Year, y = prop)) +
+  geom_point(size = 2, alpha = 0.5, color = "black") +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1, color = "black") + # Change method to "lm" for linear model
   labs(x = NULL, y = "Prop. spp. described\nwith molecular") +
   scale_y_continuous(labels = scales::percent_format())+
   scale_x_continuous(breaks = seq(1990, 2022, by = 4))+
@@ -2996,19 +3041,61 @@ inset <- ggplot(df_prop[ df_prop$Molecular==1 , ], aes(x = Year, y = prop)) +
         axis.text = element_text(size = 6),
         axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)); inset
 
-library(cowplot)
-p_grob <- ggplotGrob(p) # convert the main plot to a grob to retain the formatting
+# non-bats & non-rodents
+inset_without <- df_prop_without %>%
+  filter(Molecular == 1) %>%
+  ggplot(aes(x = Year, y = prop)) +
+  geom_point(size = 2, alpha = 0.5, color = "#ff3352") +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1, color = "#ff3352") + # Change method to "lm" for linear model
+  labs(x = NULL, y = "") +
+  scale_y_continuous(labels = scales::percent_format())+
+  scale_x_continuous(breaks = seq(1990, 2022, by = 4))+
+  theme_classic()+
+  theme(axis.title = element_text(face = 'bold', size = 7),
+        axis.text = element_text(size = 6),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)); inset_without
+
+# bats
+inset_bats <- df_prop_bats %>%
+  filter(Molecular == 1) %>%
+  ggplot(aes(x = Year, y = prop)) +
+  geom_point(size = 2, alpha = 0.5, color = "#7fc97f") +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1, color = "#7fc97f") + # Change method to "lm" for linear model
+  labs(x = NULL, y = "Prop. spp. described\nwith molecular") +
+  scale_y_continuous(labels = scales::percent_format())+
+  scale_x_continuous(breaks = seq(1990, 2022, by = 4))+
+  theme_classic()+
+  theme(axis.title = element_text(face = 'bold', size = 7),
+        axis.text = element_text(size = 6),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)); inset_bats
+
+# rodents
+inset_rodents <- df_prop_rodents %>%
+  filter(Molecular == 1) %>%
+  ggplot(aes(x = Year, y = prop)) +
+  geom_point(size = 2, alpha = 0.5, color = "#386cb0") +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.0, color = "#386cb0") + # Change method to "lm" for linear model
+  labs(x = NULL, y = "") +
+  scale_y_continuous(labels = scales::percent_format())+
+  scale_x_continuous(breaks = seq(1990, 2022, by = 4))+
+  theme_classic()+
+  theme(axis.title = element_text(face = 'bold', size = 7),
+        axis.text = element_text(size = 6),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)); inset_rodents
+
+fig <- cowplot::plot_grid(inset, inset_without, inset_bats, inset_rodents,
+                   ncol = 2, nrow = 2, align = "v", labels = "auto"); fig
+# p_grob <- ggplotGrob(p) # convert the main plot to a grob to retain the formatting
 
 # Create the final plot using ggdraw and draw_plot
-final_plot <- ggdraw() +
-  draw_grob(p_grob) +  # use draw_grob to add the main plot
-  draw_plot(inset, .08, .62, width = .3, height = .3); final_plot # add the inset plot
+#final_plot <- ggdraw() +
+#  draw_grob(p_grob) +  # use draw_grob to add the main plot
+#  draw_plot(inset, .08, .62, width = .3, height = .3); final_plot # add the inset plot
 
 # Save the plot
-ggsave(paste0(getwd(), "/figures/Figure3.MolecularMethods.pdf"), plot=final_plot, width=7, height=5, units="in", dpi = "print", cairo_pdf())
-ggsave(paste0(getwd(), "/figures/Figure3.MolecularMethods.jpg"), plot=final_plot, width=7, height=5, units="in", dpi = "print")
-ggsave(paste0(getwd(), "/figures/Figure3.MolecularMethods.tiff"), plot=final_plot, width=7, height=5, units="in", dpi = "print")
-
+ggsave(paste0(getwd(), "/figures/Figure3.MolecularMethods.pdf"), plot=fig, width=7, height=5, units="in", dpi = "print", cairo_pdf())
+#ggsave(paste0(getwd(), "/figures/Figure3.MolecularMethods.jpg"), plot=final_plot, width=7, height=5, units="in", dpi = "print")
+#ggsave(paste0(getwd(), "/figures/Figure3.MolecularMethods.tiff"), plot=final_plot, width=7, height=5, units="in", dpi = "print")
 
 ### Plot the proportion of species described with molecular data per taxa ###
 levels(as.factor(mydata$Molecular))
@@ -3038,40 +3125,66 @@ fwrite(mol_per_family, "tables/TableS1.prop_molec_per_fam.csv"); rm(mol_per_fami
 
 # Prepare for plotting:
 # Order the bars according to the proportion of spp. described with molecular analysis
-mydata <- as.data.frame(mydata)
+load("Dataset.Rdata")
+mydata <- data
 
-# get total number of species per family per order, then sort by prop
+# Spp countries
+names(mydata)
+nrow(mydata)
+nrow(SppCountries)
+
+SppCountries <- mydata %>%
+  mutate(
+    Molecular_cat = case_when(
+      Molecular == 0 ~ "no",
+      Molecular == 1 & N.Countries == 1 ~ "One country",
+      Molecular == 1 & N.Countries == 2 ~ "Two countries",
+      Molecular == 1 & N.Countries >= 3 ~ "Three or more countries"
+    )) %>%
+  mutate(Molecular_cat = factor(Molecular_cat,
+                                levels = c(
+                                  "no",
+                                  "Three or more countries",
+                                  "Two countries",
+                                  "One country")))
+
+SppCountriesTaxonomic <- mydata %>%
+  mutate(
+    Taxonomic_cat = case_when(
+      TaxonomicReview == 0 ~ "no",
+      TaxonomicReview == 1 & N.Countries == 1 ~ "One country",
+      TaxonomicReview == 1 & N.Countries == 2 ~ "Two countries",
+      TaxonomicReview == 1 & N.Countries >= 3 ~ "Three or more countries"
+    )) %>%
+  mutate(Taxonomic_cat = factor(Taxonomic_cat,
+                                levels = c(
+                                  "no",
+                                  "Three or more countries",
+                                  "Two countries",
+                                  "One country")))
+# Spp richness
 SppRichness <- mydata %>%
-  group_by(Order, Molecular) %>%
-  summarise(nSpp = n()) %>%
-  mutate(nTot = sum(nSpp)) %>%
-  group_by(Order) %>% 
-  slice_sample(n = 1) %>%      # randomly sample one row per family (this info is just for add total spp richness per family)
-  ungroup()
-SppRichness <- as.data.frame(SppRichness) # convert to dataframe
+  group_by(Order) %>%
+  summarise(nTot = n()) 
 
-p <- mydata %>%
-  left_join(SppRichness[,c("Order", "nTot")], by = "Order") %>%
+p <- SppCountries %>%
+  drop_na(N.Countries) %>%
+  left_join(SppRichness, by = "Order") %>%
   mutate(Order = paste0(Order, "\n(n=", nTot, ")"),
-  # convert variable to factor, ordered (descending) by the proportion of rows where order == "no"
-    Order = fct_reorder(.f = Order, 
-                             .x = as.factor(Molecular),
-                             .fun = function(.x) mean(.x == "no"),
-                             .desc = TRUE)) %>%
-  ggplot(aes(x = Order, fill = as.factor(Molecular))) +
+         Order = fct_reorder(Order, Molecular == 1, .fun = mean,
+                             .na_rm = TRUE, .desc = FALSE)) %>%
+  ggplot(aes(x = Order, fill = Molecular_cat)) +
   geom_bar(position = "fill") +
   geom_hline(yintercept = .5, linetype = "dashed", color = "grey50") +
-  coord_flip()+
-  # set bar colours per order
-  scale_fill_manual(values = c("white", "#fdae61")) +
-  
-  # define y-axis values
+  coord_flip() +
+  scale_fill_manual(values = c(
+    "One country" = "#fee090",
+    "Two countries" = "#ffa959",
+    "Three or more countries" = "#ff8f26",
+    "no" = "white"
+  )) +
   scale_y_continuous(breaks = seq(0, 1, .25), expand = expansion(mult = c(0, .1))) +
-  
-  # define axis titles
   labs(y = "Proportion of species described\nwith molecular data", x = "Taxonomic order") +
-  
-  # apply themes
   theme(panel.grid.minor = element_blank(),
         panel.grid.major = element_blank(),
         panel.background = element_blank(),
@@ -3079,35 +3192,36 @@ p <- mydata %>%
         axis.line = element_line(colour = "black"),
         axis.text = element_text(size = 8, colour = "black"),
         axis.text.x = element_text(angle = 0, hjust = 1, vjust = 1),
-        legend.position = "none");p# +
+        legend.title = element_blank(),
+        legend.position = "none"); p 
   
   # Add text displaying total number of species per family
   #geom_text(data = SppRichness,
   #          aes(x = Order, y = 1.03, label = nTot),
   #          size = 2.5, angle = 0, color = "black", hjust = 0.5, vjust = 0.5); p 
 
-m <- mydata %>%
+m <- SppCountriesTaxonomic %>%
+  drop_na(TaxonomicReview) %>%
   # convert variable to factor, ordered (descending) by the proportion of rows where order == "no"
-  left_join(SppRichness[,c("Order", "nTot")], by = "Order") %>%
+  left_join(SppRichness, by = "Order") %>%
   mutate(Order = paste0(Order, "\n(n=", nTot, ")"),
          # convert variable to factor, ordered (descending) by the proportion of rows where order == "no"
-         Order = fct_reorder(.f = Order, 
-                             .x = as.factor(TaxonomicReview),
-                             .fun = function(.x) mean(.x == "no"),
-                             .desc = TRUE)) %>%
-  ggplot(aes(x = Order, fill = as.factor(TaxonomicReview))) +
+         Order = fct_reorder(Order, TaxonomicReview == 1, .fun = mean,
+                             .na_rm = TRUE, .desc = FALSE)) %>%
+  ggplot(aes(x = Order, fill = Taxonomic_cat)) +
   geom_bar(position = "fill") +
   geom_hline(yintercept = .5, linetype = "dashed", color = "grey50") +
   coord_flip()+
   # set bar colours per order
-  scale_fill_manual(values = c("white", "#fdae61")) +
-  
-  # define y-axis values
+  scale_fill_manual(values = c(
+    "One country" = "#fee090",
+    "Two countries" = "#ffa959",
+    "Three or more countries" = "#ff8f26",
+    "no" = "white"
+  )) +  # define y-axis values
   scale_y_continuous(breaks = seq(0, 1, .25), expand = expansion(mult = c(0, .1))) +
-  
   # define axis titles
   labs(y = "Proportion of species described\nwith taxonomic review", x = "") +
-  
   # apply themes
   theme(panel.grid.minor = element_blank(),
         panel.grid.major = element_blank(),
@@ -3116,7 +3230,7 @@ m <- mydata %>%
         axis.line = element_line(colour = "black"),
         axis.text = element_text(size = 8, colour = "black"),
         axis.text.x = element_text(angle = 0, hjust = 1, vjust = 1),
-        legend.position = "none") 
+        legend.position = "none"); m
 
 # Arrange plots in a grid
 fig <- ggpubr::ggarrange(p, m,
@@ -3129,22 +3243,40 @@ fig <- ggpubr::ggarrange(p, m,
 ggsave(paste0(getwd(), "/figures/Figure4.PropMolecularByTaxa.pdf"),
        plot=fig, width=11, height=6, units="in", dpi = "print", cairo_pdf)
 
-ggsave(paste0(getwd(), "/figures/Figure4.PropMolecularByTaxa.jpg"),
-       plot=fig, width=11, height=6, units="in", dpi = "print")
+#ggsave(paste0(getwd(), "/figures/Figure4.PropMolecularByTaxa.jpg"),
+#       plot=fig, width=11, height=6, units="in", dpi = "print")
 
-ggsave(paste0(getwd(), "/figures/Figure4.PropMolecularByTaxa.tiff"), 
-       plot=fig, width=11, height=6, units="in", dpi = "print")
+#ggsave(paste0(getwd(), "/figures/Figure4.PropMolecularByTaxa.tiff"), 
+#       plot=fig, width=11, height=6, units="in", dpi = "print")
 
 rm(list = ls()); gc()
 
-# Relationship internacional description vs. molecular&taxonomicreview
+#####
+
+# 11) Relationship international description vs. molecular & taxonomic review.
+################################################################################
+load("Dataset.Rdata")
+
+mydata <- data
+summary(mydata$Molecular) # 30 NAs
+table(mydata$Molecular)
+
+mydata <- mydata %>%
+  filter(!is.na(Molecular)) %>%
+  mutate(MolMethod = na_if(MolMethod, ""),
+         MolMethod = case_when(
+           MolMethod == "Allozyme" ~ "Allozymes",  # padroniza para "Allozymes"
+           TRUE ~ MolMethod  
+         )) %>% 
+  mutate(TaxonomicReview = replace_na(TaxonomicReview, 0))
+
 mydata <- mydata %>%
   mutate(TypeOfStudy = paste(TaxonomicReview, Molecular, sep = "_")) %>%
   mutate(TypeOfStudy = case_when(
-    TypeOfStudy == "no_no"  ~ "Other \nevidences",
-    TypeOfStudy == "no_yes" ~ "Molecular",
-    TypeOfStudy == "yes_yes" ~ "Taxonomic \nReview \n+ Molecular",
-    TypeOfStudy == "yes_no" ~ "Taxonomic \nReview",
+    TypeOfStudy == "0_0"  ~ "Other \nevidences",
+    TypeOfStudy == "0_1" ~ "Molecular",
+    TypeOfStudy == "1_1" ~ "Taxonomic \nReview \n+ Molecular",
+    TypeOfStudy == "1_0" ~ "Taxonomic \nReview",
     TRUE ~ TypeOfStudy  # mantém o valor original caso não se enquadre em nenhum caso
   )) 
 
@@ -3158,7 +3290,122 @@ comparisons <- list(
   c("Taxonomic \nReview", "Other \nevidences")
 )
 
-# Criar o gráfico com os testes estatísticos entre grupos
+table(mydata$TypeOfStudy)
+
+# ANCOVA and post hoc test
+# All mammals
+res.aov <- mydata %>%
+  anova_test(N.Countries ~ N_authors + TypeOfStudy)
+get_anova_table(res.aov)
+
+pwc <- mydata %>% 
+  rstatix::emmeans_test(
+    N.Countries ~ TypeOfStudy, covariate = N_authors,
+    p.adjust.method = "bonferroni"
+  )
+pwc %>% View()
+
+plot_ancova_mammals <- mydata %>%
+  ggplot(aes(x = log10(N_authors), y = log10(N.Countries), color=TypeOfStudy)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  xlab("")
+
+# Without bats & rodents
+res.aov.without <- mydata %>%
+  filter(Order != "Chiroptera" & Order != "Rodentia") %>%
+  anova_test(N.Countries ~ N_authors + TypeOfStudy)
+get_anova_table(res.aov.without)
+
+pwc_without <- mydata %>% 
+  filter(Order != "Chiroptera" & Order != "Rodentia") %>%
+  rstatix::emmeans_test(
+    N.Countries ~ TypeOfStudy, covariate = N_authors,
+    p.adjust.method = "bonferroni"
+  )
+pwc_without %>% View()
+
+plot_ancova_without <- mydata %>%
+  filter(Order != "Chiroptera" & Order != "Rodentia") %>%
+  ggplot(aes(x = log10(N_authors), y = log10(N.Countries), color=TypeOfStudy)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  ylab("") + xlab("")
+
+# Bats
+res.aov.bats <- mydata %>%
+  filter(Order == "Chiroptera") %>%
+  anova_test(N.Countries ~ N_authors + TypeOfStudy)
+get_anova_table(res.aov.bats)
+
+pwc_bats <- mydata %>% 
+  filter(Order == "Chiroptera") %>%
+  rstatix::emmeans_test(
+    N.Countries ~ TypeOfStudy, covariate = N_authors,
+    p.adjust.method = "bonferroni"
+  )
+pwc_bats %>% View()
+
+plot_ancova_bats <- mydata %>%
+  filter(Order == "Chiroptera") %>%
+  ggplot(aes(x = log10(N_authors), y = log10(N.Countries), color=TypeOfStudy)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Rodents
+res.aov.rodents <- mydata %>%
+  filter(Order == "Rodentia") %>%
+  anova_test(N.Countries ~ N_authors + TypeOfStudy)
+get_anova_table(res.aov.rodents)
+
+pwc_rodentia <- mydata %>% 
+  filter(Order == "Rodentia") %>%
+  rstatix::emmeans_test(
+    N.Countries ~ TypeOfStudy, covariate = N_authors,
+    p.adjust.method = "bonferroni"
+  )
+pwc_rodentia %>% View()
+
+plot_ancova_rodents <- mydata %>%
+  filter(Order == "Rodentia") %>%
+  ggplot(aes(x = log10(N_authors), y = log10(N.Countries), color=TypeOfStudy)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal() +
+  theme(legend.position = "none")  +
+  ylab("")
+
+# Plot without legend
+plot_grid <- plot_grid(plot_ancova_mammals, plot_ancova_without,
+                       plot_ancova_bats, plot_ancova_rodents,
+                       ncol = 2, nrow = 2, labels = "auto")
+
+# extract legend
+legend_plot <- mydata %>%
+  ggplot(aes(x = log10(N_authors), y = log10(N.Countries), color = TypeOfStudy)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+legenda <- get_legend(legend_plot)
+
+# Plot with legend
+plot_final <- plot_grid(
+  plot_grid, legenda, ncol = 1, 
+  rel_heights = c(1, 0.08)); plot_final
+
+# export figure
+ggsave(paste0(getwd(), "/figures/FigureS2.Scatterplot_nauthors_ncountries.pdf"),
+       plot=plot_final, width=8, height=6, units="in", dpi = "print", cairo_pdf)
+
+# Violinplot of each group
 plot <- mydata %>%
   mutate(TypeOfStudy = factor(TypeOfStudy,
                               levels = c("Taxonomic \nReview \n+ Molecular",
@@ -3169,66 +3416,78 @@ plot <- mydata %>%
   geom_violin(width = 0.8, fill = "black", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
   geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
   
-  stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
-                     tip.length = 0.02, label.y = c(13.1, 14.4, 15.6, 16.9, 18.1, 18.4), size = 6) +  # Ajuste o size conforme necessário
+  #stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
+  #                   tip.length = 0.02, label.y = c(13.1, 14.4, 15.6, 16.9, 18.1, 18.4), size = 3) +  # Ajuste o size conforme necessário
   
   # Teste global (Kruskal-Wallis) um pouco acima
-  stat_compare_means(method = "kruskal.test", label.x = .75, label.y = 19, size = 5)+  # Ajuste o size conforme necessário
+  #stat_compare_means(method = "kruskal.test", label.x = .75, label.y = 19, size = 3)+  # Ajuste o size conforme necessário
+  # Adiciona as letras de significância com geom_text
   
-  labs(
-    title = "",
-    x = "",
-    y = "N. of countries involved"
-  ) +
-  scale_y_continuous(limits = c(0, 20), breaks = c(5, 10, 15), expand = expansion(add = c(0, .5))) +
-  theme_minimal() +
-  theme(
-    axis.title.y = element_text(size = 18, face = "bold"), 
-    legend.position = "none",
-    #plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
-    axis.text.x = element_text(size = 16, color = "black"),
-    axis.text.y = element_text(size = 16, color = "black"),
-    panel.grid.major = element_line(color = "grey80"),
-    panel.grid.minor = element_blank(),
-    axis.ticks = element_blank(),
-    axis.line = element_line(color = "black")
-  ) ; plot
-
-plot_rodentia <- mydata %>%
-  filter(Order == "Rodentia") %>%
-  mutate(TypeOfStudy = factor(TypeOfStudy,
-                              levels = c("Taxonomic \nReview \n+ Molecular",
-                                         "Molecular",
-                                         "Taxonomic \nReview",
-                                         "Other \nevidences"))) %>%
-  ggplot(aes(x = TypeOfStudy, y = N.Countries)) +
-  geom_violin(width = 0.8, fill = "#386cb0", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
-  geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
-  
-  stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
-                     tip.length = 0.02, label.y = c(13.1, 14.4, 15.6, 16.9, 18.1, 18.4), size = 6) +  # Ajuste o size conforme necessário
-  
-  # Teste global (Kruskal-Wallis) um pouco acima
-  stat_compare_means(method = "kruskal.test", label.x = .75, label.y = 19, size = 5)+  # Ajuste o size conforme necessário
+  geom_text(aes(x = 1, y = 10, label = "ab"), size = 4) +  # "AB" em Taxonomic Review + Molecular
+  geom_text(aes(x = 2, y = 14, label = "b"), size = 4) +   # "B" em Molecular
+  geom_text(aes(x = 3, y = 8.0, label = "a"), size = 4) +   # "A" em Taxonomic Review
+  geom_text(aes(x = 4, y = 7.0, label = "a", fontface = "plain"), size = 4) +   # "A" em Other evidences
   
   labs(
     title = "",
     x = "",
     y = ""
   ) +
-  scale_y_continuous(limits = c(0, 20), breaks = c(5, 10, 15), expand = expansion(add = c(0, .5))) +
+  scale_y_continuous(limits = c(0,15), breaks = c(5, 10, 15), expand = expansion(add = c(0, .5))) +
   theme_minimal() +
   theme(
+    axis.title.y = element_text(size = 18, face = "bold"), 
     legend.position = "none",
-    plot.margin=unit(c(t = 0, r = 0, b = 0, l = 0), "cm"),
-    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
-    axis.text.x = element_text(size = 16, color = "black"),
-    axis.text.y = element_blank(),
-    panel.grid.major = element_line(color = "grey80"),
+    #plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 12, color = "black"),
+    panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     axis.ticks = element_blank(),
     axis.line = element_line(color = "black")
-  ) ; plot_rodentia
+  ) ; plot
+
+# 
+plot_mammals_without <- mydata %>%
+  filter(Order != "Chiroptera" & Order != "Rodentia") %>%
+  mutate(TypeOfStudy = factor(TypeOfStudy,
+                              levels = c("Taxonomic \nReview \n+ Molecular",
+                                         "Molecular",
+                                         "Taxonomic \nReview",
+                                         "Other \nevidences"))) %>%
+  ggplot(aes(x = TypeOfStudy, y = N.Countries)) +
+  geom_violin(width = 0.8, fill = "#ff3352", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
+  geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
+  
+  #stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
+  #                   tip.length = 0.02, label.y = c(13.1, 14.4, 15.6, 16.9, 18.1, 18.4), size = 3) +  # Ajuste o size conforme necessário
+  
+  # Teste global (Kruskal-Wallis) um pouco acima
+  #stat_compare_means(method = "kruskal.test", label.x = .75, label.y = 19, size = 3)+  # Ajuste o size conforme necessário
+  geom_text(aes(x = 1, y = 6, label = "a"), size = 4) +  # "A" em Taxonomic Review + Molecular
+  geom_text(aes(x = 2, y = 14, label = "b"), size = 4) +   # "B" em Molecular
+  geom_text(aes(x = 3, y = 6, label = "b"), size = 4) +   # "B" em Taxonomic Review
+  geom_text(aes(x = 4, y = 7, label = "b"), size = 4) +   # "B" em Other evidences
+  
+  labs(
+    title = "",
+    x = "",
+    y = ""
+  ) +
+  scale_y_continuous(limits = c(0, 15), breaks = c(5, 10, 15), expand = expansion(add = c(0, .5))) +
+  theme_minimal() +
+  theme(
+    plot.margin=unit(c(t = 0, r = 0, b = 0, l = 0), "cm"),
+    #plot.margin = margin(5, 5, 5, 5, unit = "pt"),
+    legend.position = "none",
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 12, color = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_line(color = "black")
+  ) ; plot_mammals_without
 
 plot_bat <- mydata %>%
   filter(Order == "Chiroptera") %>%
@@ -3241,44 +3500,91 @@ plot_bat <- mydata %>%
   geom_violin(width = 0.8, fill = "#7fc97f", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
   geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
   
-  stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
-                     tip.length = 0.02, label.y = c(13.1, 14.4, 15.6, 16.9, 18.1, 18.4), size = 6) +  # Ajuste o size conforme necessário
+  #stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
+  #                   tip.length = 0.02, label.y = c(13.1, 14.4, 15.6, 16.9, 18.1, 18.4), size = 3) +  # Ajuste o size conforme necessário
   
   # Teste global (Kruskal-Wallis) um pouco acima
-  stat_compare_means(method = "kruskal.test", label.x = .75, label.y = 19, size = 5)+  # Ajuste o size conforme necessário
+  #stat_compare_means(method = "kruskal.test", label.x = .75, label.y = 19, size = 3)+  # Ajuste o size conforme necessário
+  geom_text(aes(x = 1, y = 9.5, label = "a"), size = 4) +  # "A" em Taxonomic Review + Molecular
+  geom_text(aes(x = 2, y = 8.5, label = "a"), size = 4) +   # "A" em Molecular
+  geom_text(aes(x = 3, y = 5.5, label = "a"), size = 4) +   # "A" em Taxonomic Review
+  geom_text(aes(x = 4, y = 5.5, label = "a"), size = 4) +   # "A" em Other evidences
   
   labs(
     title = "",
     x = "",
     y = ""
   ) +
-  scale_y_continuous(limits = c(0, 20), breaks = c(5, 10, 15), expand = expansion(add = c(0, .5))) +
+  scale_y_continuous(limits = c(0, 10), breaks = c(1, 5, 10), expand = expansion(add = c(0, .5))) +
   theme_minimal() +
   theme(
     plot.margin=unit(c(t = 0, r = 0, b = 0, l = 0), "cm"),
     #plot.margin = margin(5, 5, 5, 5, unit = "pt"),
     legend.position = "none",
-    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
-    axis.text.x = element_text(size = 16, color = "black"),
-    axis.text.y = element_blank(),
-    panel.grid.major = element_line(color = "grey80"),
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 12, color = "black"),
+    panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     axis.ticks = element_blank(),
     axis.line = element_line(color = "black")
   ) ; plot_bat
 
-fig <- ggpubr::ggarrange(plot, plot_bat, plot_rodentia, 
-                         ncol = 3, nrow = 1, 
-                         labels = "auto",
-                         font.label = list(size = 16, color = "black"),
-                         align = "hv");fig  # Proporções de largura entre colunas); fig
+plot_rodentia <- mydata %>%
+  filter(Order == "Rodentia") %>%
+  mutate(TypeOfStudy = factor(TypeOfStudy,
+                              levels = c("Taxonomic \nReview \n+ Molecular",
+                                         "Molecular",
+                                         "Taxonomic \nReview",
+                                         "Other \nevidences"))) %>%
+  ggplot(aes(x = TypeOfStudy, y = N.Countries)) +
+  geom_violin(width = 0.8, fill = "#386cb0", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
+  geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
+  
+  #stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
+  #                   tip.length = 0.02, label.y = c(13.1, 14.4, 15.6, 16.9, 18.1, 18.4), size = 3) +  # Ajuste o size conforme necessário
+  
+  # Teste global (Kruskal-Wallis) um pouco acima
+  #stat_compare_means(method = "kruskal.test", label.x = .75, label.y = 19, size = 3)+  # Ajuste o size conforme necessário
+  geom_text(aes(x = 1, y = 5.5, label = "a"), size = 4, family = "Arial", fontface = "plain") +  # "A" em Taxonomic Review + Molecular
+  geom_text(aes(x = 2, y = 5.5, label = "a"), size = 4, family = "Arial", fontface = "plain") +   # "B" em Molecular
+  geom_text(aes(x = 3, y = 7.5, label = "ab"), size = 4, family = "Arial", fontface = "plain") +   # "B" em Taxonomic Review
+  geom_text(aes(x = 4, y = 4.5, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "B" em Other evidences
+  
+  labs(
+    title = "",
+    x = "",
+    y = ""
+  ) +
+  scale_y_continuous(limits = c(0, 10), breaks = c(1, 5, 10), expand = expansion(add = c(0, .5))) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    plot.margin=unit(c(t = 0, r = 0, b = 0, l = 0), "cm"),
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 12, color = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_line(color = "black")
+  ) ; plot_rodentia
+
+#fig <- ggpubr::ggarrange(plot, plot_mammals_without, plot_bat, plot_rodentia, 
+#                         ncol = 1, nrow = 4, 
+#                         labels = "auto",
+#                         font.label = list(size = 16, color = "black"),
+#                         align = "hv");fig  # Proporções de largura entre colunas); fig
+
+fig <- cowplot::plot_grid(plot, plot_mammals_without, plot_bat, plot_rodentia, 
+                   ncol = 1, nrow = 4, align = "v", labels = "auto"); fig
 
 # Export the figure:
 ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.pdf"),
-       plot=fig, width=20, height=6, units="in", dpi = "print", cairo_pdf)
-ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.jpg"),
-       plot=fig, width=20, height=6, units="in", dpi = "print")
-ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.tiff"), 
-       plot=fig, width=20, height=6, units="in", dpi = "print")
+       plot=fig, width=5, height=12, units="in", dpi = "print", cairo_pdf)
+#ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.jpg"),
+#       plot=fig, width=20, height=6, units="in", dpi = "print")
+#ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.tiff"), 
+#       plot=fig, width=20, height=6, units="in", dpi = "print")
 
 #### END OF THE SCRIPT ####
