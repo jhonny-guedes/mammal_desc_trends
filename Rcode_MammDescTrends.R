@@ -1,17 +1,15 @@
-##############################################################################################################
-### Supporting Information ###
+# Global trends in mammal species descriptions over three decades 
+# Scripts by Matheus de T. Moroti & Jhonny J. M. Guedes
+# mmoroti@gmail.com / jhonnyguds@gmail.com
 
-# Title: Temporal trends in global mammal descriptions over three decades 
-
-##############################################################################################################
-
+# Packages
 # Load and install needed package
 needed_packages <- c("tidyverse", # package version 2.0.0
                      "dplyr", # v. 1.1.4
                      "data.table", # v. 1.15.4
                      "ggplot2", # v. 3.5.1
                      "cowplot",
-                     "MASS",
+                     "MASS", # to fit the negative binomial models
                      "RColorBrewer",
                      "broom",
                      'sf',
@@ -37,16 +35,7 @@ rm(list=ls()); gc()
 # Set working directory
 setwd() # DEFINE YOUR WORKING DIRECTORY (THE FOLDER WITH FILES NEEDED TO REPLICATE THE FINDING OF THIS STUDY)
 
-# STEPS IN THIS SCRIPT:
-#  1. Load and understand the dataset.
-#  2. 
-
-#####
-
-# 1) Load and understand the dataset.
-##############################################################################################################
-
-# Load the dataset
+# 1) Load and understand the dataset ----
 #data <- fread("Dataset.csv", na.strings = '') # 1032 species
 load("Dataset.Rdata")
 names(data)
@@ -138,11 +127,105 @@ summary(
                     "N.Pages", "N_evidencesI", "N_evidencesII")]
 )
 
+rm(list=setdiff(ls(),c("data"))); gc() # clean workspace
 
+# Make a backup
+mydata <- data
 
-# 2) Map mammal species described in the last three decades
-##############################################################################################################
+# Check mean and variance across response variables
+names(mydata)
+mean(mydata$N_evidencesI, na.rm = T); var(mydata$N_evidencesI, na.rm = T) # 24; 112
+mean(mydata$N_evidencesII, na.rm = T); var(mydata$N_evidencesII, na.rm = T) # 4.9; 1.2
+mean(mydata$N.Pages, na.rm = T); var(mydata$N.Pages, na.rm = T) # 9.8; 162
+mean(mydata$N.Specimens, na.rm = T); var(mydata$N.Specimens, na.rm = T) # 19; 1450
+mean(mydata$TaxaCompared, na.rm = T); var(mydata$TaxaCompared, na.rm = T) # 5; 29
+# The variance is lower than the mean only for the number of evidences II; much higher for the others.
 
+# Check for skewed distributions and kurtosis among predictors (transform data if necessary).
+names(mydata)
+e1071::skewness(mydata$N_authors); e1071::kurtosis(mydata$N_authors) # 2.9 and 15.1
+e1071::skewness(mydata$N.Countries, na.rm = T); e1071::kurtosis(mydata$N.Countries, na.rm = T) # 2.5 and 12.1
+e1071::skewness(mydata$Year); e1071::kurtosis(mydata$Year) # -0.37 and -0.88
+e1071::skewness(mydata$SppRichPerGenus, na.rm = T); e1071::kurtosis(mydata$SppRichPerGenus, na.rm = T) # 2.6 and 6.62
+e1071::skewness(mydata$Log10BodyMass_g, na.rm = T); e1071::kurtosis(mydata$Log10BodyMass_g, na.rm = T) # 1.3 and 2.7
+# Conclusion: log10 transform no. of authors, no. of countries, and species richness per genus
+
+mydata$N_authors <- log10(mydata$N_authors)
+mydata$N.Countries <- log10(mydata$N.Countries)
+mydata$SppRichPerGenus <- log10(mydata$SppRichPerGenus + 1)
+e1071::skewness(mydata$N_authors); e1071::kurtosis(mydata$N_authors) # much better [0.13 and -0.25]
+e1071::skewness(mydata$N.Countries, na.rm = T); e1071::kurtosis(mydata$N.Countries, na.rm = T) # much better [0.5 and -0.47]
+e1071::skewness(mydata$SppRichPerGenus, na.rm = T); e1071::kurtosis(mydata$SppRichPerGenus, na.rm = T) # much better [0.11 and -0.23]
+
+### Before standardizing the data, make descriptive plots of the response and predictor variables.
+names(mydata)
+
+# Define variables
+vars <- c("N_evidencesII", "N.Pages", "N.Specimens", "TaxaCompared", 
+          "Year", "Log10BodyMass_g", "N_authors", "N.Countries", "SppRichPerGenus", "TaxonomicReview")
+# remove "N_evidencesI"
+# change taxonomic review to categorical
+mydata$TaxonomicReview <- ifelse(mydata$TaxonomicReview==1, yes = 'Yes', no = 'No')
+
+# Define the custom x-axis labels
+custom_labels <- c("N. of evidence", "N. of pages", "N. of specimens",
+                   "N. of taxa compared", "Year of description", "Body mass (log10)", 
+                   "N. of authors (log10)", "N. of countries (log 10)",
+                   "N. of species/genus (log10)", "Taxonomic review")
+# remove "N_evidencesI"
+# Initialize a list to store the plots
+plot_list <- list()
+
+# Loop through each variable and create a plot based on its type
+for (i in seq_along(vars)) {
+  var <- vars[i]
+  label <- custom_labels[i]
+  
+  # Data subset with complete cases
+  new_data <- mydata[complete.cases(Year, Log10BodyMass_g, N_authors,
+                                    SppRichPerGenus, TaxonomicReview), ]
+  
+  if (is.numeric(mydata[[var]])) {  # Continuous variables
+    p <- ggplot(new_data, aes_string(x = var)) +
+      geom_histogram(color = "black", fill = 'grey50', alpha = 0.5, na.rm = TRUE) +
+      scale_y_continuous(expand = expansion(mult = c(0.01, 0))) +
+      {if(i %in% c(1, 4, 7, 10)) labs(x = label, y = "N. of species")} +
+      {if( ! (i %in% c(1, 4, 7, 10))) labs(x = label, y = NULL)} +
+      theme_classic() +
+      theme(axis.title = element_text(size = 7, face = 'bold'),
+            axis.text = element_text(size = 6),
+            legend.position = 'none')
+    
+  } else {  # Categorical variables
+    p <- ggplot(new_data, aes_string(x = var)) +
+      geom_bar(color = "black", alpha = 0.7, na.rm = TRUE) +
+      scale_y_continuous(expand = expansion(mult = c(0.01, 0))) +
+      labs(x = label, y = NULL) +
+      theme_classic() +
+      theme(axis.title = element_text(size = 7, face = 'bold'),
+            axis.text = element_text(size = 6),
+            legend.position = 'none')
+  }
+  
+  # Add the plot to the list
+  plot_list[[var]] <- p
+  rm(new_data, p)
+}
+
+# Combine the plots into a multi-panel plot using cowplot
+multi_panel_plot <- plot_grid(plotlist = plot_list, ncol = 2, labels = 'auto', 
+                              align = 'v', label_size = 8); multi_panel_plot
+
+# Save the figure
+ggsave(paste0(getwd(), "/figures/Figure1.DescriptivePlot.pdf"), 
+       plot=multi_panel_plot, width=6, height=10, units="in", dpi = "print", cairo_pdf)
+ggsave(paste0(getwd(), "/figures/Figure1.DescriptivePlot.jpg"),
+       plot=multi_panel_plot, width=6, height=7, units="in", dpi = "print")
+ggsave(paste0(getwd(), "/figures/Figure1.DescriptivePlot.tiff"),
+       plot=multi_panel_plot, width=6, height=7, units="in", dpi = "print")
+rm(multi_panel_plot, plot_list, label, vars, var, i, custom_labels)
+
+# 2) Map mammal species described in the last three decades ----
 # Load a world map with country subdivisions
 #world_map <- st_read("~/Documents/Rasters and shapefiles/shapefiles/gadm36_cea.shp")
 #world_map <- world_map %>% st_transform(crs = "+proj=eqearth") # change CRS to equal area
@@ -411,11 +494,7 @@ FinalPlot <- MyMap2 +
 ggsave(filename="figures/Figure1_Map.png", plot=FinalPlot, width=12, height=8, units="in", bg="white", limitsize=F)
 ggsave(filename="figures/Figure1_Map.pdf", plot=FinalPlot, width=12, height=8, units="in", bg="white", limitsize=F)
 
-#####
-
-# 3) Temporal trends in robustness of publications - based on annual means.
-##############################################################################################################
-
+# 3) Temporal trends in robustness of publications - based on annual means ----
 # Four metrics will be analyzed:
 # i)   number of evidence types (there are 2 versions of this variable: equal- and unequal-weight; see main text)
 # ii)  number of pages per publication (includes only methods and results).
@@ -467,7 +546,6 @@ dir.create('figures') # create folder to store images
 ggsave(paste0(getwd(), "/figures/FigureS1.ResponseCorr.pdf"), plot=p, width=7, height=5, units="in", dpi = "print")
 ggsave(paste0(getwd(), "/figures/FigureS1.ResponseCorr.png"), plot=p, width=7, height=5, units="in", dpi = "print", bg = 'white')
 rm(p) # clean workspace
-
 
 #------------------------------------------------------------#
 # Make correlation plots between response variables and year
@@ -715,12 +793,9 @@ figF <- figF + xlab("Year of description"); FigF
 
 ggsave(paste0(getwd(), "/figures/FigureAux.Nofcountries.pdf"),
  plot=figF, width=4, height=10, units="in", dpi = "print", cairo_pdf)
-
 # This figure was exported to the software InkScape for minor aesthetic adjustments
-#####
 
-# 4) Publication Robustness by Mammal Order
-##############################################################################################################
+# 4) Publication Robustness by Mammal Order ----
 # Get summary values for plotting
 # Select response, explanatory (year), and grouping variables
 names(mydata)
@@ -777,106 +852,11 @@ fig <- ggpubr::ggarrange(figA, figB, figC, figD, figE, figF,
 ggsave(paste0(getwd(), "/figures/Figure2.OrderRobustness.pdf"),
        plot=fig, width=14, height=18, units="in", dpi = "print", cairo_pdf)
 
-#####
-
-# 5) Temporal trends in robustness of publications - based on generalised linear models.
-##############################################################################################################
-
+# 5) Temporal trends in robustness of publications - based on GLMs.----
 rm(list=setdiff(ls(),c("data"))); gc() # clean workspace
 
 # Make a backup
 mydata <- data
-
-# Check mean and variance across response variables
-names(mydata)
-mean(mydata$N_evidencesI, na.rm = T); var(mydata$N_evidencesI, na.rm = T) # 24; 112
-mean(mydata$N_evidencesII, na.rm = T); var(mydata$N_evidencesII, na.rm = T) # 4.9; 1.2
-mean(mydata$N.Pages, na.rm = T); var(mydata$N.Pages, na.rm = T) # 9.8; 162
-mean(mydata$N.Specimens, na.rm = T); var(mydata$N.Specimens, na.rm = T) # 19; 1450
-mean(mydata$TaxaCompared, na.rm = T); var(mydata$TaxaCompared, na.rm = T) # 5; 29
-# The variance is lower than the mean only for the number of evidences II; much higher for the others.
-
-# Check for skewed distributions and kurtosis among predictors (transform data if necessary).
-names(mydata)
-e1071::skewness(mydata$N_authors); e1071::kurtosis(mydata$N_authors) # 2.9 and 15.1
-e1071::skewness(mydata$N.Countries, na.rm = T); e1071::kurtosis(mydata$N.Countries, na.rm = T) # 2.5 and 12.1
-e1071::skewness(mydata$Year); e1071::kurtosis(mydata$Year) # -0.37 and -0.88
-e1071::skewness(mydata$SppRichPerGenus, na.rm = T); e1071::kurtosis(mydata$SppRichPerGenus, na.rm = T) # 2.6 and 6.62
-e1071::skewness(mydata$Log10BodyMass_g, na.rm = T); e1071::kurtosis(mydata$Log10BodyMass_g, na.rm = T) # 1.3 and 2.7
-# Conclusion: log10 transform no. of authors, no. of countries, and species richness per genus
-
-mydata$N_authors <- log10(mydata$N_authors)
-mydata$N.Countries <- log10(mydata$N.Countries)
-mydata$SppRichPerGenus <- log10(mydata$SppRichPerGenus + 1)
-e1071::skewness(mydata$N_authors); e1071::kurtosis(mydata$N_authors) # much better [0.13 and -0.25]
-e1071::skewness(mydata$N.Countries, na.rm = T); e1071::kurtosis(mydata$N.Countries, na.rm = T) # much better [0.5 and -0.47]
-e1071::skewness(mydata$SppRichPerGenus, na.rm = T); e1071::kurtosis(mydata$SppRichPerGenus, na.rm = T) # much better [0.11 and -0.23]
-
-
-### Before standardizing the data, make descriptive plots of the response and predictor variables.
-names(mydata)
-
-# Define variables
-vars <- c("N_evidencesI", "N_evidencesII", "N.Pages", "N.Specimens", "TaxaCompared", 
-          "Year", "Log10BodyMass_g", "N_authors", "N.Countries", "SppRichPerGenus", "TaxonomicReview")
-
-# change taxonomic review to categorical
-mydata$TaxonomicReview <- ifelse(mydata$TaxonomicReview==1, yes = 'Yes', no = 'No')
-
-# Define the custom x-axis labels
-custom_labels <- c("N. of evidence I", "N. of evidence II", "N. of pages", "N. of specimens",
-                   "N. of taxa compared", "Year of description", "Body mass (log10)", 
-                   "N. of authors (log10)", "N. of countries (log 10)",
-                   "N. of species/genus (log10)", "Taxonomic review")
-
-# Initialize a list to store the plots
-plot_list <- list()
-
-# Loop through each variable and create a plot based on its type
-for (i in seq_along(vars)) {
-  var <- vars[i]
-  label <- custom_labels[i]
-  
-  # Data subset with complete cases
-  new_data <- mydata[complete.cases(Year, Log10BodyMass_g, N_authors, SppRichPerGenus, TaxonomicReview), ]
-  
-  if (is.numeric(mydata[[var]])) {  # Continuous variables
-    p <- ggplot(new_data, aes_string(x = var)) +
-      geom_histogram(color = "black", fill = 'grey50', alpha = 0.5, na.rm = TRUE) +
-      scale_y_continuous(expand = expansion(mult = c(0.01, 0))) +
-      {if(i %in% c(1, 4, 7, 10)) labs(x = label, y = "N. of species")} +
-      {if( ! (i %in% c(1, 4, 7, 10))) labs(x = label, y = NULL)} +
-      theme_classic() +
-      theme(axis.title = element_text(size = 7, face = 'bold'),
-            axis.text = element_text(size = 6),
-            legend.position = 'none')
-    
-  } else {  # Categorical variables
-    p <- ggplot(new_data, aes_string(x = var)) +
-      geom_bar(color = "black", alpha = 0.7, na.rm = TRUE) +
-      scale_y_continuous(expand = expansion(mult = c(0.01, 0))) +
-      labs(x = label, y = NULL) +
-      theme_classic() +
-      theme(axis.title = element_text(size = 7, face = 'bold'),
-            axis.text = element_text(size = 6),
-            legend.position = 'none')
-  }
-  
-  # Add the plot to the list
-  plot_list[[var]] <- p
-  rm(new_data, p)
-}
-
-# Combine the plots into a multi-panel plot using cowplot
-multi_panel_plot <- plot_grid(plotlist = plot_list, ncol = 3, labels = 'auto', align = 'v',
-                              label_size = 8); multi_panel_plot
-
-# Save the figure
-ggsave(paste0(getwd(), "/figures/Figure1.DescriptivePlot.pdf"), plot=multi_panel_plot, width=6, height=7, units="in", dpi = "print", cairo_pdf)
-ggsave(paste0(getwd(), "/figures/Figure1.DescriptivePlot.jpg"), plot=multi_panel_plot, width=6, height=7, units="in", dpi = "print")
-ggsave(paste0(getwd(), "/figures/Figure1.DescriptivePlot.tiff"), plot=multi_panel_plot, width=6, height=7, units="in", dpi = "print")
-rm(multi_panel_plot, plot_list, label, vars, var, i, custom_labels)
-
 
 # Standardize continuous predictors (mean = 0, sd =1) in order to make them comparable
 mydata$year.z <- scale(mydata$Year) 
@@ -890,6 +870,9 @@ mydata <- mydata[ complete.cases(year.z, logBodyMass.z, logN_authors.z, logN_cou
                                  logGenusRichness.z, TaxonomicReview) , ] 
 # n = 820 species with complete data on predictor variables
 
+# Change taxonomic review to categorical
+mydata$TaxonomicReview <- ifelse(mydata$TaxonomicReview==1, yes = 'Yes', no = 'No')
+
 # Check multicolinearity among continuous response variables
 usdm::vif(mydata[ , year.z:logGenusRichness.z])
 #         Variables      VIF
@@ -901,7 +884,7 @@ usdm::vif(mydata[ , year.z:logGenusRichness.z])
 # Conclusion: keep all variables into the model as VIFs are low (< 2)
 
 # Check sample size per realm and order
-mydata %>% group_by(wwf_realm) %>% summarise(n = n())
+#mydata %>% group_by(wwf_realm) %>% summarise(n = n())
 # wwf_realm       n
 # Afrotropic    198
 # Australasia    88
@@ -911,7 +894,7 @@ mydata %>% group_by(wwf_realm) %>% summarise(n = n())
 # Paleartic      55
 # NA             35
 
-mydata %>% group_by(NewOrder) %>% summarise(n = n()) %>% arrange(desc(n))
+#mydata %>% group_by(NewOrder) %>% summarise(n = n()) %>% arrange(desc(n))
 # NewOrder         n
 # Rodentia       330
 # Chiroptera     222
@@ -940,51 +923,58 @@ extract_model_results <- function(model, response_name) {
   return(tidy_model)
 }
 
+# As bats and rodents represent the most diverse orders, let's run GLMs separetely for them.
+data %>% group_by(Order) %>% 
+  summarise(n = n()) %>% 
+  arrange(desc(n))
+
+# Make a backup
+levels(as.factor(data$Order))
+
+## All mammals ----
 
 #------------------------------------------------------------#
 # Model the number of evidence I
 #------------------------------------------------------------#
 
-library(MASS) # to fit the negative binomial models
-
-# Set model formula
-form <- as.formula(N_evidencesI ~ 
-                     year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
-                     logGenusRichness.z + TaxonomicReview)
-
-# Fit a GLM
-mod.evi.nb <- glm.nb(formula = form, data = mydata[ ! is.na(mydata$N_evidencesI) , ] ) # remove rows with NAs on the response variable
-mod.evi.gau <- glm(formula = form, data = mydata[ ! is.na(mydata$N_evidencesI) , ] ) # remove rows with NAs on the response variable
-
-# Compare models using AIC
-AIC(mod.evi.nb, mod.evi.gau)
-#             df      AIC
-# mod.evi.nb   8 6107.960
-# mod.evi.gau  8 6132.008
-# Models have similar fit, but the negative binomial model is slightly better
-
-# Check model output
-summary(mod.evi.nb)  
-# Results
-#                     Estimate Std. Error z value Pr(>|t|)    
-# (Intercept)        3.193723   0.016844 189.611  < 2e-16 ***
-#year.z              0.040294   0.017748   2.270  0.02319 *  
-#logN_authors.z     -0.010874   0.020640  -0.527  0.59831    
-#logN_countries.z   -0.016223   0.019524  -0.831  0.40600    
-#logBodyMass.z      -0.043015   0.016171  -2.660  0.00781 ** 
-#GenusRichness.z     0.009696   0.015504   0.625  0.53171    
-#TaxonomicReviewYes -0.090686   0.037806  -2.399  0.01645 *
-
-# NOTE: results from the neg. binomial model is qualitatively the same as the gaussian model.
-
-# Compute R2
-performance::r2(mod.evi.nb) # Nagelkerke's R2: 0.045
-
-# Extract and store model results
-results <- bind_rows(results, extract_model_results(mod.evi.nb, "N. evidence I"))
-
-# Save model output for latter checking phylogenetic correlation in model residuals
-save(mod.evi.nb, file = 'mod.evi.I.Rdata')
+## Set model formula
+#form <- as.formula(N_evidencesI ~ 
+#                     year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
+#                     logGenusRichness.z + TaxonomicReview)
+#
+## Fit a GLM
+#mod.evi.nb <- glm.nb(formula = form, data = mydata[ ! is.na(mydata$N_evidencesI) , ] ) # remove rows with NAs on the response variable
+#mod.evi.gau <- glm(formula = form, data = mydata[ ! is.na(mydata$N_evidencesI) , ] ) # remove rows with NAs on the response variable
+#
+## Compare models using AIC
+#AIC(mod.evi.nb, mod.evi.gau)
+##             df      AIC
+## mod.evi.nb   8 6107.960
+## mod.evi.gau  8 6132.008
+## Models have similar fit, but the negative binomial model is slightly better
+#
+## Check model output
+#summary(mod.evi.nb)  
+## Results
+##                     Estimate Std. Error z value Pr(>|t|)    
+## (Intercept)        3.193723   0.016844 189.611  < 2e-16 ***
+##year.z              0.040294   0.017748   2.270  0.02319 *  
+##logN_authors.z     -0.010874   0.020640  -0.527  0.59831    
+##logN_countries.z   -0.016223   0.019524  -0.831  0.40600    
+##logBodyMass.z      -0.043015   0.016171  -2.660  0.00781 ** 
+##GenusRichness.z     0.009696   0.015504   0.625  0.53171    
+##TaxonomicReviewYes -0.090686   0.037806  -2.399  0.01645 *
+#
+## NOTE: results from the neg. binomial model is qualitatively the same as the gaussian model.
+#
+## Compute R2
+#performance::r2(mod.evi.nb) # Nagelkerke's R2: 0.045
+#
+## Extract and store model results
+#results <- bind_rows(results, extract_model_results(mod.evi.nb, "N. evidence I"))
+#
+## Save model output for latter checking phylogenetic correlation in model residuals
+#save(mod.evi.nb, file = 'mod.evi.I.Rdata')
 
 #------------------------------------------------------------#
 # Model the number of evidence II
@@ -1019,13 +1009,13 @@ summary(mod.evi2.gau)
 # TaxonomicReviewYes -0.254164   0.091606  -2.775  0.00566 **
 
 # Compute R2
-performance::r2(mod.evi2.gau) # R2: 0.105
+evidences_r2 <-performance::r2(mod.evi2.gau) # R2: 0.105
 
 # Extract and store model results
-results <- bind_rows(results, extract_model_results(mod.evi2.gau, "N. evidence II"))
+results <- bind_rows(results, extract_model_results(mod.evi2.gau, "N. evidence"))
 
 # Save model output for latter checking phylogenetic correlation in model residuals
-save(mod.evi2.gau, file = 'mod.evi.II.Rdata')
+save(mod.evi2.gau, file = 'model_outputs/mod.evi.II.Rdata')
 
 #------------------------------------------------------------#
 # Number of pages
@@ -1054,14 +1044,13 @@ summary(mod.pages)
 # TaxonomicReviewYes -0.043812   0.029228  -1.499   0.1343
 
 # Compute R2
-performance::r2(mod.pages) # R2: 0.067
+pages_r2 <- performance::r2(mod.pages) # R2: 0.067
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.pages, "N. pages"))
 
 # save model output
-save(mod.pages, file = 'mod.pages.Rdata')
-
+save(mod.pages, file = 'model_outputs/mod.pages.Rdata')
 
 #------------------------------------------------------------#
 # Number of specimens 
@@ -1089,13 +1078,13 @@ summary(mod.ts)
 # TaxonomicReviewYes -0.004824   0.102291  -0.047   0.9624 
 
 # Get R2
-performance::r2(mod.ts) # Nagelkerke's R2: 0.104
+nspecimens_r2 <- performance::r2(mod.ts) # Nagelkerke's R2: 0.104
 
 # Extract and store model results
-results <- bind_rows(results, extract_model_results(mod.ts, "N. of specimens"))
+results <- bind_rows(results, extract_model_results(mod.ts, "N. specimens"))
 
 # Save model output
-save(mod.ts, file = 'mod.ts.Rdata')
+save(mod.ts, file = 'model_outputs/mod.ts.Rdata')
 
 #------------------------------------------------------------#
 # Number of taxa compared
@@ -1123,44 +1112,251 @@ summary(mod.tcom)
 # TaxonomicReviewYes -0.06620    0.07177  -0.922  0.35633
 
 # Get R2
-performance::r2(mod.tcom) # Nagelkerke's R2: 0.163
+taxacompared_r2 <- performance::r2(mod.tcom) # Nagelkerke's R2: 0.163
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.tcom, "N. taxa compared"))
 
 # Save model output
-save(mod.tcom, file = 'mod.tcom.Rdata')
+save(mod.tcom, file = 'model_outputs/mod.tcom.Rdata')
 
+# Round numbers 
+results[,c(3:5)] <- round(results[,c(3:5)], digits = 3)
+View(results)
+# Save as xlsx
+dir.create('tables') # create folder to store model results
+writexl::write_xlsx(results, 'tables/model_outputs.xlsx')
+fwrite(results, file = 'model_outputs/model_outs.csv')
+
+# Extract R2
+results_r2 <- tibble(
+  name = c("N. evidence", "N. pages", "N. specimens", "N. taxa compared"),
+  value = c(evidences_r2$R2, pages_r2$R2, nspecimens_r2$R2_Nagelkerke, taxacompared_r2$R2_Nagelkerke),
+  metric = c("R2", "R2", "R2_Nagelkerke", "R2_Nagelkerke"),
+  group = "All mammals"
+)
+fwrite(results_r2, file = 'model_outputs/r2_allmammals.csv')
+
+# Clean workspace
+rm(list=setdiff(ls(),c("data","mydata","extract_model_results"))); gc()
+
+## Non-bats & non-rodents ----
+mammals_without <- mydata %>%
+  filter(Order != "Rodentia" & Order != "Chiroptera")
+results <- data.frame()
+#------------------------------------------------------------#
+# Model the number of evidence I
+#------------------------------------------------------------#
+#
+## Set model formula
+#form <- as.formula(N_evidencesI ~ 
+#                     year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
+#                     logGenusRichness.z + TaxonomicReview)
+#
+## Fit a GLM
+#mod.evi.nb <- glm.nb(formula = form, data = mydata[ ! is.na(mydata$N_evidencesI) , ] ) # remove rows with NAs on the response variable
+#mod.evi.gau <- glm(formula = form, data = mydata[ ! is.na(mydata$N_evidencesI) , ] ) # remove rows with NAs on the response variable
+#
+## Compare models using AIC
+#AIC(mod.evi.nb, mod.evi.gau)
+##             df      AIC
+## mod.evi.nb   8 6107.960
+## mod.evi.gau  8 6132.008
+## Models have similar fit, but the negative binomial model is slightly better
+#
+## Check model output
+#summary(mod.evi.nb)  
+## Results
+##                     Estimate Std. Error z value Pr(>|t|)    
+## (Intercept)        3.193723   0.016844 189.611  < 2e-16 ***
+##year.z              0.040294   0.017748   2.270  0.02319 *  
+##logN_authors.z     -0.010874   0.020640  -0.527  0.59831    
+##logN_countries.z   -0.016223   0.019524  -0.831  0.40600    
+##logBodyMass.z      -0.043015   0.016171  -2.660  0.00781 ** 
+##GenusRichness.z     0.009696   0.015504   0.625  0.53171    
+##TaxonomicReviewYes -0.090686   0.037806  -2.399  0.01645 *
+#
+## NOTE: results from the neg. binomial model is qualitatively the same as the gaussian model.
+#
+## Compute R2
+#performance::r2(mod.evi.nb) # Nagelkerke's R2: 0.045
+#
+## Extract and store model results
+#results <- bind_rows(results, extract_model_results(mod.evi.nb, "N. evidence I"))
+#
+## Save model output for latter checking phylogenetic correlation in model residuals
+#save(mod.evi.nb, file = 'mod.evi.I.Rdata')
+
+#------------------------------------------------------------#
+# Model the number of evidence II
+#------------------------------------------------------------#
+nrow(mammals_without) # without NA's 268 spp
+
+# Set model formula
+form <- as.formula(N_evidencesII ~ 
+                     year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
+                     logGenusRichness.z + TaxonomicReview)
+
+# Fit a GLM 
+mod.evi2.nb.without <- glm.nb(formula = form,
+                              data = mammals_without[ ! is.na(mammals_without$N_evidencesII) , ] ) # remove rows with NAs on the response variable
+mod.evi2.gau.without <- glm(formula = form, 
+                            data = mammals_without[ ! is.na(mammals_without$N_evidencesII) , ] ) # remove rows with NAs on the response variable
+
+# Compare models using AIC
+AIC(mod.evi2.nb.without, mod.evi2.gau.without)
+# df      AIC
+# mod.evi2.nb   8 966
+# mod.evi2.gau  8 779.98
+# The gaussian model is much better
+
+# Check model output
+summary(mod.evi2.gau.without)  
+# Results
+#Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)         4.27771    0.07479  57.195  < 2e-16 ***
+#  year.z              0.18989    0.07597   2.500 0.013044 *  
+#  logN_authors.z     -0.07012    0.06285  -1.116 0.265586    
+#logN_countries.z    0.07192    0.08001   0.899 0.369554    
+#logBodyMass.z      -0.20040    0.05851  -3.425 0.000714 ***
+#  logGenusRichness.z  0.12481    0.04679   2.667 0.008129 ** 
+#  TaxonomicReview    -0.04817    0.16448  -0.293 0.769846 
+
+# Compute R2
+evidences_r2 <- performance::r2(mod.evi2.gau.without) # R2: 0.18
+
+# Extract and store model results
+results <- bind_rows(results,
+                     extract_model_results(mod.evi2.gau.without,
+                                           "N. evidence II"))
+
+# Save model output for latter checking phylogenetic correlation in model residuals
+save(mod.evi2.gau.without, file = 'model_outputs/mod.evi.II.without.Rdata')
+
+#------------------------------------------------------------#
+# Number of pages
+#------------------------------------------------------------#
+
+# Set a full model formula
+mammals_without$LogN.Pages <- log10(mammals_without$N.Pages) # transform it 'out' of the model, otherwise there will be an error when calculating R2
+form <- as.formula(LogN.Pages ~ 
+                     year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
+                     logGenusRichness.z + TaxonomicReview)
+
+# Fit a Gaussian model as the response is continuous (remove rows with NAs on the response variable)
+mod.pages.without <- glm(formula = form, family = 'gaussian', data = mammals_without[ !is.na(mammals_without$N.Pages) , ])
+
+# Check results
+summary(mod.pages.without) 
+
+# Results:
+#Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)         0.78631    0.02229  35.269  < 2e-16 ***
+#  year.z              0.05771    0.02277   2.534 0.011860 *  
+#  logN_authors.z      0.01241    0.01881   0.659 0.510188    
+#logN_countries.z   -0.03370    0.02400  -1.404 0.161409    
+#logBodyMass.z      -0.06016    0.01758  -3.423 0.000721 ***
+#  logGenusRichness.z -0.04871    0.01398  -3.484 0.000581 ***
+#  TaxonomicReview    -0.16066    0.04984  -3.223 0.001432 ** 
+
+# Compute R2
+pages_r2 <- performance::r2(mod.pages.without) # R2: 0.15
+
+# Extract and store model results
+results <- bind_rows(results, extract_model_results(mod.pages.without, "N. pages"))
+
+# save model output
+save(mod.pages.without, file = 'model_outputs/mod.pages.without.Rdata')
+
+#------------------------------------------------------------#
+# Number of specimens 
+#------------------------------------------------------------#
+
+# Set a full model formula
+form <- as.formula(N.Specimens ~ 
+                     year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
+                     logGenusRichness.z + TaxonomicReview)
+
+# Fit the model 
+mod.ts.without <- glm.nb(formula = form, data = mammals_without[ !is.na(mammals_without$N.Specimens) , ])
+
+# Check results
+summary(mod.ts.without) 
+
+# Results
+#               Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)         2.830773   0.046271  61.179  < 2e-16 ***
+# year.z              0.214269   0.048229   4.443 8.88e-06 ***
+# logN_authors.z      0.005795   0.056209   0.103   0.9179    
+# logN_countries.z   -0.121326   0.053291  -2.277   0.0228 *  
+# logBodyMass.z      -0.002750   0.044548  -0.062   0.9508    
+# GenusRichness.z     0.211751   0.042540   4.978 6.43e-07 ***
+# TaxonomicReviewYes -0.004824   0.102291  -0.047   0.9624 
+
+# Get R2
+nspecimens_r2 <- performance::r2(mod.ts.without) # Nagelkerke's R2: 0.24
+
+# Extract and store model results
+results <- bind_rows(results, extract_model_results(mod.ts.without, "N. specimens"))
+
+# Save model output
+save(mod.ts.without, file = 'model_outputs/mod.ts.without.Rdata')
+
+#------------------------------------------------------------#
+# Number of taxa compared
+#------------------------------------------------------------#
+
+# Set a full model formula
+form <- as.formula(TaxaCompared ~ 
+                     year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
+                     logGenusRichness.z + TaxonomicReview)
+
+# Fit the model 
+mod.tcom.without <- glm.nb(formula = form, data = mammals_without[ !is.na(mammals_without$TaxaCompared) , ])
+
+# Check results
+summary(mod.tcom.without) 
+
+# Results
+#               Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)         1.72249    0.03188  54.034  < 2e-16 ***
+# year.z              0.11168    0.03351   3.333  0.00086 ***
+# logN_authors.z     -0.06351    0.03890  -1.633  0.10253    
+# logN_countries.z    0.06326    0.03677   1.720  0.08540 .  
+# logBodyMass.z       0.01813    0.03049   0.595  0.55209    
+# GenusRichness.z     0.22290    0.02942   7.575 3.58e-14 ***
+# TaxonomicReviewYes -0.06620    0.07177  -0.922  0.35633
+
+# Get R2
+taxacompared_r2 <- performance::r2(mod.tcom.without) # Nagelkerke's R2: 0.294
+
+# Extract and store model results
+results <- bind_rows(results, extract_model_results(mod.tcom.without, "N. taxa compared"))
+
+# Save model output
+save(mod.tcom.without, file = 'model_outputs/mod.tcom.without.Rdata')
 
 # Round numbers 
 results[,c(3:5)] <- round(results[,c(3:5)], digits = 3)
 
 # Save as xlsx
 dir.create('tables') # create folder to store model results
-writexl::write_xlsx(results, 'tables/model_outputs.xlsx')
-fwrite(results, file = 'model_outs.csv')
+writexl::write_xlsx(results, 'tables/model_outputs_without.xlsx')
+fwrite(results, file = 'model_outputs/model_outs_without.csv')
+
+# Extract R2
+results_r2 <- tibble(
+  name = c("N. evidence", "N. pages", "N. specimens", "N. taxa compared"),
+  value = c(evidences_r2$R2, pages_r2$R2, nspecimens_r2$R2_Nagelkerke, taxacompared_r2$R2_Nagelkerke),
+  metric = c("R2", "R2", "R2_Nagelkerke", "R2_Nagelkerke"),
+  group = "Non-bats & non-rodents"
+)
+fwrite(results_r2, file = 'model_outputs/r2_without.csv')
 
 # Clean workspace
-rm(list=setdiff(ls(),c("data","mydata","results"))); gc()
+rm(list=setdiff(ls(),c("data","mydata", "extract_model_results"))); gc()
 
-#####
-
-# 6) Temporal trends in robustness of publications - based on GLMs - for bats and rodents.
-##############################################################################################################
-
-# As bats and rodents represent the most diverse orders, let's run GLMs separetely for them.
-data %>% group_by(Order) %>% summarise(n = n()) %>% arrange(desc(n))
-
-# Make a backup
-levels(as.factor(data$Order))
-
-
-#------------------------------------------------------------#
-
-######################## RODENTS ############################-
-
-#------------------------------------------------------------#
-
+## Rodents ----
 # Subset data
 rodents <- data[ data$Order == 'Rodentia' , ] # n = 421
 
@@ -1209,60 +1405,46 @@ colSums( ! is.na(rodents[ , c("N_evidencesI", "N_evidencesII", "N.Pages", "N.Spe
 # Create an empty data frame to store model results
 results <- data.frame()
 
-# Function to extract model results and add to the results data frame
-extract_model_results <- function(model, response_name) {
-  tidy_model <- broom::tidy(model)
-  tidy_model <- tidy_model %>%
-    mutate(response = response_name) %>%
-    dplyr::select(response, term, estimate, std.error, p.value) %>%
-    dplyr::mutate(lower95 = estimate - 1.96 * std.error, # compute lower 95% CI
-                  upper95 = estimate + 1.96 * std.error) # compute upper 95% CI
-  return(tidy_model)
-}
-
-
 #------------------------------------------------------------#
 # Model the number of evidence I
 #------------------------------------------------------------#
 
-library(MASS) # to fit the negative binomial models
-
-# Set model formula
-form <- as.formula(N_evidencesI ~ 
-                     year.z + N_authors.z + logN_countries.z + logBodyMass.z + 
-                     logGenusRichness.z + TaxonomicReview)
-
-# Fit a GLM
-mod.evi.nb <- glm.nb(formula = form, data = rodents[ ! is.na(rodents$N_evidencesI) , ] ) # remove rows with NAs on the response variable
-mod.evi.gau <- glm(formula = form, data = rodents[ ! is.na(rodents$N_evidencesI) , ] ) # remove rows with NAs on the response variable
-
-# Compare models using AIC
-AIC(mod.evi.nb, mod.evi.gau)
-#             df      AIC
-# mod.evi.nb   8 2304.634
-# mod.evi.gau  8 2261.916
-# Models have similar fit, but the gaussian model is slightly better
-
-# Check model output
-summary(mod.evi.gau)  
-# Results
-#                     Estimate Std. Error t value Pr(>|t|)    
-# (Intercept)        26.1734     0.4513  57.992   <2e-16 ***
-# year.z               0.1963     0.4653   0.422   0.6734    
-# N_authors.z          0.7182     0.5259   1.366   0.1730    
-# logN_countries.z     0.5977     0.4730   1.264   0.2073    
-# logBodyMass.z        0.6997     0.4012   1.744   0.0821 .  
-# logGenusRichness.z   0.1058     0.4028   0.263   0.7929    
-# TaxonomicReviewYes  -2.0115     1.0334  -1.946   0.0525 .
-
-# Compute R2
-performance::r2(mod.evi.gau) # 0.047
-
-# Extract and store model results
-results <- bind_rows(results, extract_model_results(mod.evi.gau, "N. evidence I"))
-
-# Save model output for latter checking phylogenetic correlation in model residuals
-save(mod.evi.gau, file = 'model_outputs/mod.evi.I.rodents.Rdata')
+## Set model formula
+#form <- as.formula(N_evidencesI ~ 
+#                     year.z + N_authors.z + logN_countries.z + logBodyMass.z + 
+#                     logGenusRichness.z + TaxonomicReview)
+#
+## Fit a GLM
+#mod.evi.nb <- glm.nb(formula = form, data = rodents[ ! is.na(rodents$N_evidencesI) , ] ) # remove rows with NAs on the response variable
+#mod.evi.gau <- glm(formula = form, data = rodents[ ! is.na(rodents$N_evidencesI) , ] ) # remove rows with NAs on the response variable
+#
+## Compare models using AIC
+#AIC(mod.evi.nb, mod.evi.gau)
+##             df      AIC
+## mod.evi.nb   8 2304.634
+## mod.evi.gau  8 2261.916
+## Models have similar fit, but the gaussian model is slightly better
+#
+## Check model output
+#summary(mod.evi.gau)  
+## Results
+##                     Estimate Std. Error t value Pr(>|t|)    
+## (Intercept)        26.1734     0.4513  57.992   <2e-16 ***
+## year.z               0.1963     0.4653   0.422   0.6734    
+## N_authors.z          0.7182     0.5259   1.366   0.1730    
+## logN_countries.z     0.5977     0.4730   1.264   0.2073    
+## logBodyMass.z        0.6997     0.4012   1.744   0.0821 .  
+## logGenusRichness.z   0.1058     0.4028   0.263   0.7929    
+## TaxonomicReviewYes  -2.0115     1.0334  -1.946   0.0525 .
+#
+## Compute R2
+#performance::r2(mod.evi.gau) # 0.047
+#
+## Extract and store model results
+#results <- bind_rows(results, extract_model_results(mod.evi.gau, "N. evidence I"))
+#
+## Save model output for latter checking phylogenetic correlation in model residuals
+#save(mod.evi.gau, file = 'model_outputs/mod.evi.I.rodents.Rdata')
 
 #------------------------------------------------------------#
 # Model the number of evidence II
@@ -1297,7 +1479,7 @@ summary(mod.evi2.gau)
 # TaxonomicReviewYes -0.41226    0.13904  -2.965  0.00325 **
 
 # Compute R2
-performance::r2(mod.evi2.gau) # R2: 0.051
+evidences_r2 <- performance::r2(mod.evi2.gau) # R2: 0.051
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.evi2.gau, "N. evidence II"))
@@ -1332,14 +1514,13 @@ summary(mod.pages)
 # TaxonomicReviewYes -0.0008657  0.0451024  -0.019    0.985
 
 # Compute R2
-performance::r2(mod.pages) # R2: 0.072
+pages_r2 <- performance::r2(mod.pages) # R2: 0.072
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.pages, "N. pages"))
 
 # save model output
 save(mod.pages, file = 'model_outputs/mod.pages.rodents.Rdata')
-
 
 #------------------------------------------------------------#
 # Number of specimens 
@@ -1367,7 +1548,7 @@ summary(mod.ts)
 # TaxonomicReviewYes -0.23273    0.16158  -1.440   0.1498
 
 # Get R2
-performance::r2(mod.ts) # 0.113
+nspecimens_r2 <- performance::r2(mod.ts) # 0.113
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.ts, "N. specimens"))
@@ -1401,7 +1582,7 @@ summary(mod.tcom)
 # TaxonomicReviewYes  0.07998    0.12275   0.652    0.515
 
 # Get R2
-performance::r2(mod.tcom) # R2: 0.099
+taxacompared_r2 <- performance::r2(mod.tcom) # R2: 0.099
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.tcom, "N. taxa compared"))
@@ -1416,16 +1597,19 @@ results[,c(3:7)] <- round(results[,c(3:7)], digits = 3)
 writexl::write_xlsx(results, 'tables/model_outputs_rodents.xlsx')
 fwrite(results, file = 'model_outputs/model_outs_rodents.csv')
 
+# Extract R2
+results_r2 <- tibble(
+  name = c("N. evidence", "N. pages", "N. specimens", "N. taxa compared"),
+  value = c(evidences_r2$R2, pages_r2$R2, nspecimens_r2$R2_Nagelkerke, taxacompared_r2$R2_Nagelkerke),
+  metric = c("R2", "R2", "R2_Nagelkerke", "R2_Nagelkerke"),
+  group = "Rodents"
+)
+fwrite(results_r2, file = 'model_outputs/r2_rodents.csv')
+
 # Clean workspace
-rm(list=setdiff(ls(),c("data"))); gc()
+rm(list=setdiff(ls(),c("data", "extract_model_results"))); gc()
 
-
-#------------------------------------------------------------#
-
-########################## BATS #############################-
-
-#------------------------------------------------------------#
-
+## Bats ----
 # Subset data
 bats <- data[ data$Order == 'Chiroptera' , ] # n = 280
 
@@ -1474,58 +1658,46 @@ colSums( ! is.na(bats[ , c("N_evidencesI", "N_evidencesII", "N.Pages", "N.Specim
 # Create an empty data frame to store model results
 results <- data.frame()
 
-# Function to extract model results and add to the results data frame
-extract_model_results <- function(model, response_name) {
-  tidy_model <- broom::tidy(model)
-  tidy_model <- tidy_model %>%
-    mutate(response = response_name) %>%
-    dplyr::select(response, term, estimate, std.error, p.value) %>%
-    dplyr::mutate(lower95 = estimate - 1.96 * std.error, # compute lower 95% CI
-                  upper95 = estimate + 1.96 * std.error) # compute upper 95% CI
-  return(tidy_model)
-}
-
-
 #------------------------------------------------------------#
 # Model the number of evidence I
 #------------------------------------------------------------#
 
 # Set model formula
-form <- as.formula(N_evidencesI ~ 
-                     year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
-                     GenusRichness.z + TaxonomicReview)
-
-# Fit a GLM
-mod.evi.nb <- glm.nb(formula = form, data = bats[ ! is.na(bats$N_evidencesI) , ] ) # remove rows with NAs on the response variable
-mod.evi.gau <- glm(formula = form, data = bats[ ! is.na(bats$N_evidencesI) , ] ) # remove rows with NAs on the response variable
-
-# Compare models using AIC
-AIC(mod.evi.nb, mod.evi.gau)
-#             df      AIC
-# mod.evi.nb   8 1542.676
-# mod.evi.gau  8 1578.516
-# Models have similar fit, but the negative binomial model is slightly better
-
-# Check model output
-summary(mod.evi.nb)  
-# Results
-#                     Estimate Std. Error t value Pr(>|t|)    
-# (Intercept)        3.191952   0.024669 129.389   <2e-16 ***
-# year.z             -0.062948   0.025596  -2.459   0.0139 *  
-# logN_authors.z      0.020158   0.032335   0.623   0.5330    
-# logN_countries.z    0.016072   0.030248   0.531   0.5952    
-# logBodyMass.z      -0.036805   0.022736  -1.619   0.1055    
-# GenusRichness.z     0.003591   0.025006   0.144   0.8858    
-# TaxonomicReviewYes -0.057745   0.054888  -1.052   0.2928
-
-# Compute R2
-performance::r2(mod.evi.nb) # 0.078
-
-# Extract and store model results
-results <- bind_rows(results, extract_model_results(mod.evi.nb, "N. evidence I"))
-
-# Save model output for latter checking phylogenetic correlation in model residuals
-save(mod.evi.nb, file = 'model_outputs/mod.evi.I.bats.Rdata')
+#form <- as.formula(N_evidencesI ~ 
+#                     year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
+#                     GenusRichness.z + TaxonomicReview)
+#
+## Fit a GLM
+#mod.evi.nb <- glm.nb(formula = form, data = bats[ ! is.na(bats$N_evidencesI) , ] ) # remove rows with NAs on the response variable
+#mod.evi.gau <- glm(formula = form, data = bats[ ! is.na(bats$N_evidencesI) , ] ) # remove rows with NAs on the response variable
+#
+## Compare models using AIC
+#AIC(mod.evi.nb, mod.evi.gau)
+##             df      AIC
+## mod.evi.nb   8 1542.676
+## mod.evi.gau  8 1578.516
+## Models have similar fit, but the negative binomial model is slightly better
+#
+## Check model output
+#summary(mod.evi.nb)  
+## Results
+##                     Estimate Std. Error t value Pr(>|t|)    
+## (Intercept)        3.191952   0.024669 129.389   <2e-16 ***
+## year.z             -0.062948   0.025596  -2.459   0.0139 *  
+## logN_authors.z      0.020158   0.032335   0.623   0.5330    
+## logN_countries.z    0.016072   0.030248   0.531   0.5952    
+## logBodyMass.z      -0.036805   0.022736  -1.619   0.1055    
+## GenusRichness.z     0.003591   0.025006   0.144   0.8858    
+## TaxonomicReviewYes -0.057745   0.054888  -1.052   0.2928
+#
+## Compute R2
+#performance::r2(mod.evi.nb) # 0.078
+#
+## Extract and store model results
+#results <- bind_rows(results, extract_model_results(mod.evi.nb, "N. evidence I"))
+#
+## Save model output for latter checking phylogenetic correlation in model residuals
+#save(mod.evi.nb, file = 'model_outputs/mod.evi.I.bats.Rdata')
 
 #------------------------------------------------------------#
 # Model the number of evidence II
@@ -1560,7 +1732,7 @@ summary(mod.evi2.gau)
 # TaxonomicReviewYes -0.012132   0.127558  -0.095   0.9243
 
 # Compute R2
-performance::r2(mod.evi2.gau) # R2: 0.135
+evidences_r2 <- performance::r2(mod.evi2.gau) # R2: 0.135
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.evi2.gau, "N. evidence II"))
@@ -1595,14 +1767,13 @@ summary(mod.pages)
 # TaxonomicReviewYes  0.071381   0.055631   1.283  0.20084
 
 # Compute R2
-performance::r2(mod.pages) # R2: 0.099
+pages_r2 <- performance::r2(mod.pages) # R2: 0.099
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.pages, "N. pages"))
 
 # save model output
 save(mod.pages, file = 'model_outputs/mod.pages.bats.Rdata')
-
 
 #------------------------------------------------------------#
 # Number of specimens 
@@ -1630,7 +1801,7 @@ summary(mod.ts)
 # TaxonomicReviewYes  0.58824    0.19576   3.005  0.00266 **
 
 # Get R2
-performance::r2(mod.ts) # 0.156
+nspecimens_r2 <- performance::r2(mod.ts) # 0.156
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.ts, "N. specimens"))
@@ -1664,7 +1835,7 @@ summary(mod.tcom)
 # TaxonomicReviewYes -0.14236    0.12364  -1.151  0.24953
 
 # Get R2
-performance::r2(mod.tcom) # R2: 0.172
+taxacompared_r2 <- performance::r2(mod.tcom) # R2: 0.172
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.tcom, "N. taxa compared"))
@@ -1679,27 +1850,46 @@ results[,c(3:7)] <- round(results[,c(3:7)], digits = 3)
 writexl::write_xlsx(results, 'tables/model_outputs_bats.xlsx')
 fwrite(results, file = 'model_outputs/model_outs_bats.csv')
 
+# Extract R2
+results_r2 <- tibble(
+  name = c("N. evidence", "N. pages", "N. specimens", "N. taxa compared"),
+  value = c(evidences_r2$R2, pages_r2$R2, nspecimens_r2$R2_Nagelkerke, taxacompared_r2$R2_Nagelkerke),
+  metric = c("R2", "R2", "R2_Nagelkerke", "R2_Nagelkerke"),
+  group = "Bats"
+)
+fwrite(results_r2, file = 'model_outputs/r2_bats.csv')
+
 # Clean workspace
 rm(list = ls()); gc()
 
-
-#####
-
-# 7) Create a plot with model coefficients and CI intervals.
-##############################################################################################################
-
+# 6) Create a plot with model coefficients and CI intervals.----
 # Load
+rm(list = ls()); gc()
 results_all <- fread('model_outputs/model_outs.csv')
+results_without <- fread('model_outputs/model_outs_without.csv')
 results_rodents <- fread('model_outputs/model_outs_rodents.csv')
 results_bats <- fread('model_outputs/model_outs_bats.csv')
 
+r2_all <- fread('model_outputs/r2_allmammals.csv')
+r2_without <- fread('model_outputs/r2_without.csv')
+r2_rodents <- fread('model_outputs/r2_rodents.csv')
+r2_bats <- fread('model_outputs/r2_bats.csv')
+
 # Add column informing taxon coverage
-results_all$group <- 'All taxa'
+results_all$group <- 'All mammals'
+results_without$group <- 'Non-bats & non-rodents'
 results_rodents$group <- 'Rodents'
 results_bats$group <- 'Bats'
 
 # Combine datasets
-results <- rbind(results_all, results_rodents, results_bats); rm(results_all, results_rodents, results_bats)
+results <- rbind(results_all, results_without, 
+                 results_bats, results_rodents) %>%
+  mutate(group = factor(group,
+                                  levels = c(
+                                    "All mammals",
+                                    "Non-bats & non-rodents",
+                                    "Bats",
+                                    "Rodents")))
 
 # Reorder predictors and fix names
 levels(as.factor(results$term))
@@ -1713,59 +1903,56 @@ results$term <- factor(results$term,
 levels(as.factor(results$response))
 
 # Make the plot
-p <- ggplot(results, aes(x = response, y = estimate, shape = response, ymin = lower95, ymax = upper95))+
-  # Add rectangular boxes in the background (to improve contrast):
-  geom_rect(xmin=0, xmax=11, ymin=-Inf, ymax=+Inf, fill="grey95", color="transparent") + # Socioeconomic
-  geom_pointrange(aes(col = response), size = 0.3)+ # shape = Class
-  scale_shape_manual(values=c(0,1,2,4,5))+
-  scale_color_brewer(type = 'qual', palette = 'Set2')+
-  geom_errorbar(aes(ymin=lower95, ymax=upper95, col = response), width=0.1)+
-  geom_hline(yintercept = 0, linetype = 2)+
-  labs(x=NULL, y="Model Coefficients (CI 95%)")+
-  scale_x_discrete(limits = rev(levels(as.factor(results$response))))+
-  facet_grid(term ~ group, scales = 'free_x', switch = "y") +  # Use facet_grid and switch strip position to the left
-  theme(panel.grid.minor = element_blank(),
-        panel.grid.major = element_blank(),
-        panel.background = element_blank(),
-        axis.title = element_text(size=12, face="bold"),
-        axis.text = element_text(size=10),
-        axis.line = element_line(colour="black"),
-        axis.ticks.y.left = element_blank(),
-        axis.text.x=element_text(),
-        axis.text.y = element_blank(),
-        plot.background=element_rect(fill = "white"),
-        strip.background = element_blank(),
-        strip.placement = "outside",
-        strip.text.y.left = element_text(angle = 0, hjust = 1, vjust = 0.5, size = 10),
-        legend.background = element_rect(colour = 'grey50', fill = 'grey95'),
-        legend.key = element_blank(),
-        legend.title = element_blank(),
-        legend.position = c(.76, .85))+
-  coord_flip(); p
+#p <- ggplot(results, aes(x = response, y = estimate, shape = response, ymin = lower95, ymax = upper95))+
+#  # Add rectangular boxes in the background (to improve contrast):
+#  geom_rect(xmin=0, xmax=11, ymin=-Inf, ymax=+Inf, fill="grey95", color="transparent") + # Socioeconomic
+#  geom_pointrange(aes(col = response), size = 0.3)+ # shape = Class
+#  scale_shape_manual(values=c(0,1,2,4,5))+
+#  scale_color_brewer(type = 'qual', palette = 'Set2')+
+#  geom_errorbar(aes(ymin=lower95, ymax=upper95, col = response), width=0.1)+
+#  geom_hline(yintercept = 0, linetype = 2)+
+#  labs(x=NULL, y="Model Coefficients (CI 95%)")+
+#  scale_x_discrete(limits = rev(levels(as.factor(results$response))))+
+#  facet_grid(term ~ group, scales = 'free_x', switch = "y") +  # Use facet_grid and switch strip position to the left
+#  theme(panel.grid.minor = element_blank(),
+#        panel.grid.major = element_blank(),
+#        panel.background = element_blank(),
+#        axis.title = element_text(size=12, face="bold"),
+#        axis.text = element_text(size=10),
+#        axis.line = element_line(colour="black"),
+#        axis.ticks.y.left = element_blank(),
+#        axis.text.x=element_text(),
+#        axis.text.y = element_blank(),
+#        plot.background=element_rect(fill = "white"),
+#        strip.background = element_blank(),
+#        strip.placement = "outside",
+#        strip.text.y.left = element_text(angle = 0, hjust = 1, vjust = 0.5, size = 10),
+#        legend.background = element_rect(colour = 'black', fill = 'white'),
+#        legend.key = element_blank(),
+#        legend.title = element_blank(),
+#        legend.position = "top")+
+#  coord_flip(); p
 
 # save figure as pdf
-ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs.png"), plot=p, width=10, height=6, units="in", dpi = 'print')
-ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs.jpg"), plot=p, width=10, height=6, units="in", dpi = 'print')
-ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs.pdf"), plot=p, width=10, height=6, units="in", dpi = 'print', cairo_pdf)
+#ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs.png"), plot=p, width=10, height=6, units="in", dpi = 'print')
+#ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs.jpg"), plot=p, width=10, height=6, units="in", dpi = 'print')
+#ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs.pdf"), plot=p, width=10, height=6, units="in", dpi = 'print', cairo_pdf)
 
-
-###  OPTION 2  ###
-
-MyColors <- c("#c51b7d", "#dfc27d", "#878787", "#f4a582", "#a50026")
-names(MyColors) <- c("N. evidence I","N. evidence II","N. pages","N. specimens","N. taxa compared")
+MyColors <- c("#8e0152", "#bf812d", "#4d4d4d", "#d6604d")
+names(MyColors) <- c("N. evidence II","N. pages","N. specimens","N. taxa compared")
 
 # Define background data to apply unique colors to each 'group' column
 background_data <- data.frame(
   group = unique(results$group),  # Each unique 'group' will get its own color
-  fill = c("grey95", "#deebf7", "#e5f5e0")  # Define a color for each 'group'
+  fill = c("#bfbbbc","#fa8e9f","#bbedbb", "#7d9cc7")  # Define a color for each 'group'
 )
 
 p <- ggplot(results, aes(x = response, y = estimate, shape = response, ymin = lower95, ymax = upper95)) +
   # Add a geom_rect layer for each 'group' level with specific fill color, without legend
   geom_rect(data = background_data, 
             aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, fill = fill),
-            inherit.aes = FALSE, color = "transparent", show.legend = FALSE) +
-  geom_pointrange(aes(col = response), size = 0.3) +
+            inherit.aes = FALSE, color = "transparent", show.legend = FALSE, alpha = 0.3) +
+  geom_pointrange(aes(col = response), size = 0.2) +
   scale_shape_manual(values = c(0, 1, 2, 4, 5)) +
   scale_color_manual(values = MyColors) +
   geom_errorbar(aes(ymin = lower95, ymax = upper95, col = response), width = 0.1) +
@@ -1787,11 +1974,10 @@ p <- ggplot(results, aes(x = response, y = estimate, shape = response, ymin = lo
     strip.background = element_blank(),
     strip.placement = "outside",
     strip.text.y.left = element_text(angle = 0, hjust = 1, vjust = 0.5, size = 10),
-    legend.background = element_rect(colour = 'grey50', fill = 'grey95'),
+    legend.background = element_rect(colour = 'white', fill = 'white'),
     legend.key = element_blank(),
     legend.title = element_blank(),
-    legend.position = c(.76, .85)
-  ) +
+    legend.position = "top") +
   coord_flip() +
   scale_fill_identity(); p  # Use fill colors directly without a scale
 
@@ -1799,12 +1985,61 @@ ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs2.png"), plot=p, width=10, h
 ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs2.jpg"), plot=p, width=10, height=6, units="in", dpi = 'print')
 ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs2.pdf"), plot=p, width=10, height=6, units="in", dpi = 'print', cairo_pdf)
 
+# Inset plot with R2
+background_colors <- c(
+  "All mammals" = "black",
+  "Non-bats & non-rodents" = "#ff3352",
+  "Bats" = "#7fc97f",
+  "Rodents" = "#386cb0"
+)
 
-#####
+results_r2 <- rbind(r2_all, r2_without, r2_rodents, r2_bats) %>%
+  mutate(
+    group = factor(group, levels = names(background_colors)),
+    name = factor(name, levels = c(
+      "N. taxa compared",
+      "N. specimens",
+      "N. pages",
+      "N. evidence"
+    )))
 
-# 8) Check phylogenetic correlation in model residuals.
-##############################################################################################################
+# Plot
+inset_plot <- ggplot(results_r2, aes(x = name, y = value, fill = group)) +
+  # Barras
+  geom_col(position = position_dodge(width = 0.9), width = 0.7, alpha = 0.3,
+           color = "black", size = 0.2) +
+  
+  # Ajuste de escala para o eixo X após o coord_flip
+  scale_x_discrete(expand = c(0, 0)) +  # Evita o espaçamento extra
+  scale_y_continuous(breaks = seq(0, 0.3, by = 0.1), limits = c(0, 0.3), expand = c(0, 0)) +  # Definindo limite superior no eixo Y (horizontal)
+  scale_fill_manual(values = background_colors, guide = "none") +
+  
+  # Layout
+  facet_wrap(~ group, ncol = 1) +
+  coord_flip() +
+  labs(x = NULL, y = "Model R²") +
+  theme(
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA),
+    strip.background = element_blank(),
+    strip.text = element_blank(),
+    panel.grid = element_blank(),
+    axis.text.x = element_text(angle = 0, hjust = 1, size = 13),
+    axis.text.y = element_text(size = 13, color = "black"),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black"),
+    axis.title.y = element_text(size = 13),
+    axis.line.x = element_line(color = "black", size = 0.5),  # Linha do eixo X após coord_flip
+    axis.ticks.x = element_line(color = "black", size = 0.5),  
+    axis.line.y = element_line(color = "black", size = 0.5),  # Linha do eixo Y (horizontal após coord_flip)
+    axis.ticks.y = element_line(color = "black", size = 0.5),  # Marcas no eixo Y (horizontal após coord_flip)
+    legend.position = "none"
+  ); inset_plot
 
+ggsave(paste0(getwd(), "/figures/Figure.aux2.pdf"), plot=inset_plot,
+       width=4, height=6, units="in", dpi = 'print', cairo_pdf)
+
+# 7) Check phylogenetic correlation in model residuals.----
 # Load additional packages
 needed_packages <- c('foreach', # for looping construct (package version 1.5.2)
                      'doParallel', # for parallel computing (v. 1.0.17)
@@ -2870,12 +3105,7 @@ AvgPhyCorr_tcom_rodents<-PhyCorr_tcom_rodents[, .(Distance=mean(dist.class, na.r
 save(PhyCorr_tcom_rodents, AvgPhyCorr_tcom_rodents, file="PhyloCorr/PhyloCorr_tcom_rodents.Rdata")
 rm(tcom_dat_rodents, PhyCorr_tcom_rodents, AvgPhyCorr_tcom_rodents) # clean workspace
 
-#####
-
-# 9) Make phylogenetic correlograms.
-##############################################################################################################
-
-
+# 8) Make phylogenetic correlograms.----
 ################# ALL MAMMALS COMBINED #####################-
 
 # Load data
@@ -2948,10 +3178,7 @@ ggsave(paste0(getwd(), "/figures/FigureS2.PhyloCorrelogram_rodents.jpg"), plot=M
 
 rm(list = ls()); gc() # clean workspace and garbage collection
 
-#####
-
-# 10) Explore temporal trends in the use of molecular data on Mammal description.
-################################################################################
+# 9) Explore temporal trends in the use of molecular data on Mammal description.----
 # Load dataset
 #mydata <- fread("Dataset.csv", na.strings = '')
 load("Dataset.Rdata")
@@ -2971,19 +3198,69 @@ mydata <- mydata %>%
          )) %>% 
   mutate(TaxonomicReview = replace_na(TaxonomicReview, 0))
 
+# Ordenando para ter a mesma cor em todos os graficos bar plot
+mol_levels <- mydata %>%
+  filter(!is.na(MolMethod)) %>%
+  distinct(MolMethod) %>%
+  pull(MolMethod) %>%
+  sort()
 levels(as.factor(mydata$MolMethod)) # 13 levels
 
-# Count the number of description per molecular method
-df <- mydata %>%
+# Transforme em fator no próprio dataframe
+mydata$MolMethod <- as.character(mydata$MolMethod)
+mydata$MolMethod[is.na(mydata$MolMethod)] <- "NA"
+mydata$MolMethod <- factor(mydata$MolMethod, levels = mol_levels)
+
+# Exemplo com 12 cores + 1 cinza (ajuste conforme o número de níveis)
+extended_colors <- c(brewer.pal(n = length(mol_levels) - 1, name = "Paired"), "#D3D3D3")
+names(extended_colors) <- mol_levels
+
+all_mammals <- mydata %>%
   group_by(Year, MolMethod) %>%
-  summarize(Count = n(), .groups = 'drop')
+  summarize(Count = n(), .groups = 'drop') %>%
+  ggplot(aes(x = as.factor(Year), y = Count, fill = MolMethod)) +
+  geom_bar(stat = "identity") +
+  labs(x = "", y = "N. of species", fill = "Molecular Methods") +
+  scale_x_discrete(breaks = seq(1990, 2023, 5), expand = expansion(mult = c(0.01, 0))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0))) +
+  # scale_fill_hue() +  
+  scale_fill_manual(values = extended_colors) +  # Use "Paired" colors and grey for NAs
+  theme_classic() +
+  theme(axis.title = element_text(face = 'bold'),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+        legend.title = element_text(size = 6),            # Reduce legend title size
+        legend.text = element_text(size = 5),             # Reduce legend text size
+        legend.key.size = unit(0.5, "lines"),             # Reduce the size of the legend keys
+        legend.spacing = unit(0.5, "lines"),              # Reduce the spacing between legend items
+        legend.margin = margin(t = 0.5, r = 0.5, b = 0.5, l = 0.5, unit = "lines"),  # Reduce margin around the legend
+        legend.position = 'bottom'); all_mammals
 
-# Make the plot showing temporal trends in the use of molecular data and associated methods
-library(RColorBrewer)
-# Extend the palette by repeating it or combining with another palette
-extended_colors <- c(brewer.pal(12, "Paired"), "#D3D3D3")  # Adding custom colors like grey shades
+without_molecular <- mydata %>%
+  filter(Order != "Chiroptera" & Order != "Rodentia") %>%
+  group_by(Year, MolMethod) %>%
+  summarize(Count = n(), .groups = 'drop') %>%
+  ggplot(aes(x = as.factor(Year), y = Count, fill = MolMethod)) +
+  geom_bar(stat = "identity") +
+  labs(x = "", y = "", fill = "Molecular Methods") +
+  scale_x_discrete(breaks = seq(1990, 2023, 5), expand = expansion(mult = c(0.01, 0))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0))) +
+  # scale_fill_hue() +  
+  scale_fill_manual(values = extended_colors) +  # Use "Paired" colors and grey for NAs
+  theme_classic() +
+  theme(axis.title = element_text(face = 'bold'),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+        legend.title = element_text(size = 6),            # Reduce legend title size
+        legend.text = element_text(size = 5),             # Reduce legend text size
+        legend.key.size = unit(0.5, "lines"),             # Reduce the size of the legend keys
+        legend.spacing = unit(0.5, "lines"),              # Reduce the spacing between legend items
+        legend.margin = margin(t = 0.5, r = 0.5, b = 0.5, l = 0.5, unit = "lines"),  # Reduce margin around the legend
+        legend.position = 'none'); without_molecular
 
-p <- ggplot(df, aes(x = as.factor(Year), y = Count, fill = MolMethod)) +
+bats_molecular <- mydata %>%
+  filter(Order == "Chiroptera") %>%
+  group_by(Year, MolMethod) %>%
+  summarize(Count = n(), .groups = 'drop') %>%
+  ggplot(aes(x = as.factor(Year), y = Count, fill = MolMethod)) +
   geom_bar(stat = "identity") +
   labs(x = "Year of description", y = "N. of species", fill = "Molecular Methods") +
   scale_x_discrete(breaks = seq(1990, 2023, 5), expand = expansion(mult = c(0.01, 0))) +
@@ -2998,8 +3275,36 @@ p <- ggplot(df, aes(x = as.factor(Year), y = Count, fill = MolMethod)) +
         legend.key.size = unit(0.5, "lines"),             # Reduce the size of the legend keys
         legend.spacing = unit(0.5, "lines"),              # Reduce the spacing between legend items
         legend.margin = margin(t = 0.5, r = 0.5, b = 0.5, l = 0.5, unit = "lines"),  # Reduce margin around the legend
-        legend.position = 'right'); p
+        legend.position = 'none'); bats_molecular
 
+rodents_molecular <- mydata %>%
+  filter(Order == "Rodentia") %>%
+  group_by(Year, MolMethod) %>%
+  summarize(Count = n(), .groups = 'drop') %>%
+  ggplot(aes(x = as.factor(Year), y = Count, fill = MolMethod)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Year of description", y = "", fill = "Molecular Methods") +
+  scale_x_discrete(breaks = seq(1990, 2023, 5), expand = expansion(mult = c(0.01, 0))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0))) +
+  # scale_fill_hue() +  
+  scale_fill_manual(values = extended_colors) +  # Use "Paired" colors and grey for NAs
+  theme_classic() +
+  theme(axis.title = element_text(face = 'bold'),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+        legend.title = element_text(size = 6),            # Reduce legend title size
+        legend.text = element_text(size = 5),             # Reduce legend text size
+        legend.key.size = unit(0.5, "lines"),             # Reduce the size of the legend keys
+        legend.spacing = unit(0.5, "lines"),              # Reduce the spacing between legend items
+        legend.margin = margin(t = 0.5, r = 0.5, b = 0.5, l = 0.5, unit = "lines"),  # Reduce margin around the legend
+        legend.position = 'none'); rodents_molecular
+
+fig <- cowplot::plot_grid(all_mammals, without_molecular, bats_molecular, rodents_molecular,
+                          ncol = 2, nrow = 2, align = "v", labels = "auto"); fig
+
+ggsave(paste0(getwd(), "/figures/FigureS3.MolecularMethods.pdf"), 
+       plot=fig, width=9, height=6, units="in", dpi = "print", cairo_pdf())
+
+# Obtain proportion
 df_prop <- mydata %>%
   filter(!is.na(Molecular)) %>%
   group_by(Year, Molecular) %>%
@@ -3032,7 +3337,7 @@ inset <- df_prop %>%
   filter(Molecular == 1) %>%
   ggplot(aes(x = Year, y = prop)) +
   geom_point(size = 2, alpha = 0.5, color = "black") +
-  geom_smooth(method = "lm", se = FALSE, linewidth = 1, color = "black") + # Change method to "lm" for linear model
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1, color = "black") + 
   labs(x = NULL, y = "Prop. spp. described\nwith molecular") +
   scale_y_continuous(labels = scales::percent_format())+
   scale_x_continuous(breaks = seq(1990, 2022, by = 4))+
@@ -3046,7 +3351,7 @@ inset_without <- df_prop_without %>%
   filter(Molecular == 1) %>%
   ggplot(aes(x = Year, y = prop)) +
   geom_point(size = 2, alpha = 0.5, color = "#ff3352") +
-  geom_smooth(method = "lm", se = FALSE, linewidth = 1, color = "#ff3352") + # Change method to "lm" for linear model
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1, color = "#ff3352") + 
   labs(x = NULL, y = "") +
   scale_y_continuous(labels = scales::percent_format())+
   scale_x_continuous(breaks = seq(1990, 2022, by = 4))+
@@ -3060,7 +3365,7 @@ inset_bats <- df_prop_bats %>%
   filter(Molecular == 1) %>%
   ggplot(aes(x = Year, y = prop)) +
   geom_point(size = 2, alpha = 0.5, color = "#7fc97f") +
-  geom_smooth(method = "lm", se = FALSE, linewidth = 1, color = "#7fc97f") + # Change method to "lm" for linear model
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1, color = "#7fc97f") + 
   labs(x = NULL, y = "Prop. spp. described\nwith molecular") +
   scale_y_continuous(labels = scales::percent_format())+
   scale_x_continuous(breaks = seq(1990, 2022, by = 4))+
@@ -3074,7 +3379,7 @@ inset_rodents <- df_prop_rodents %>%
   filter(Molecular == 1) %>%
   ggplot(aes(x = Year, y = prop)) +
   geom_point(size = 2, alpha = 0.5, color = "#386cb0") +
-  geom_smooth(method = "lm", se = FALSE, linewidth = 1.0, color = "#386cb0") + # Change method to "lm" for linear model
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.0, color = "#386cb0") + 
   labs(x = NULL, y = "") +
   scale_y_continuous(labels = scales::percent_format())+
   scale_x_continuous(breaks = seq(1990, 2022, by = 4))+
@@ -3093,9 +3398,8 @@ fig <- cowplot::plot_grid(inset, inset_without, inset_bats, inset_rodents,
 #  draw_plot(inset, .08, .62, width = .3, height = .3); final_plot # add the inset plot
 
 # Save the plot
-ggsave(paste0(getwd(), "/figures/Figure3.MolecularMethods.pdf"), plot=fig, width=7, height=5, units="in", dpi = "print", cairo_pdf())
-#ggsave(paste0(getwd(), "/figures/Figure3.MolecularMethods.jpg"), plot=final_plot, width=7, height=5, units="in", dpi = "print")
-#ggsave(paste0(getwd(), "/figures/Figure3.MolecularMethods.tiff"), plot=final_plot, width=7, height=5, units="in", dpi = "print")
+ggsave(paste0(getwd(), "/figures/Figure3.MolecularMethods.pdf"), plot=fig, 
+       width=7, height=5, units="in", dpi = "print", cairo_pdf())
 
 ### Plot the proportion of species described with molecular data per taxa ###
 levels(as.factor(mydata$Molecular))
@@ -3124,7 +3428,8 @@ prop_rev <- mydata %>%
 fwrite(mol_per_family, "tables/TableS1.prop_molec_per_fam.csv"); rm(mol_per_family)
 
 # Prepare for plotting:
-# Order the bars according to the proportion of spp. described with molecular analysis
+# Order the bars according to the proportion of spp. 
+# described with molecular analysis
 load("Dataset.Rdata")
 mydata <- data
 
@@ -3147,21 +3452,6 @@ SppCountries <- mydata %>%
                                   "Three or more countries",
                                   "Two countries",
                                   "One country")))
-
-SppCountriesTaxonomic <- mydata %>%
-  mutate(
-    Taxonomic_cat = case_when(
-      TaxonomicReview == 0 ~ "no",
-      TaxonomicReview == 1 & N.Countries == 1 ~ "One country",
-      TaxonomicReview == 1 & N.Countries == 2 ~ "Two countries",
-      TaxonomicReview == 1 & N.Countries >= 3 ~ "Three or more countries"
-    )) %>%
-  mutate(Taxonomic_cat = factor(Taxonomic_cat,
-                                levels = c(
-                                  "no",
-                                  "Three or more countries",
-                                  "Two countries",
-                                  "One country")))
 # Spp richness
 SppRichness <- mydata %>%
   group_by(Order) %>%
@@ -3178,9 +3468,9 @@ p <- SppCountries %>%
   geom_hline(yintercept = .5, linetype = "dashed", color = "grey50") +
   coord_flip() +
   scale_fill_manual(values = c(
-    "One country" = "#fee090",
-    "Two countries" = "#ffa959",
-    "Three or more countries" = "#ff8f26",
+    "One country" = "#c7c7c7",
+    "Two countries" = "#919190",
+    "Three or more countries" = "#4d4d4d",
     "no" = "white"
   )) +
   scale_y_continuous(breaks = seq(0, 1, .25), expand = expansion(mult = c(0, .1))) +
@@ -3200,6 +3490,21 @@ p <- SppCountries %>%
   #          aes(x = Order, y = 1.03, label = nTot),
   #          size = 2.5, angle = 0, color = "black", hjust = 0.5, vjust = 0.5); p 
 
+SppCountriesTaxonomic <- mydata %>%
+  mutate(
+    Taxonomic_cat = case_when(
+      TaxonomicReview == 0 ~ "no",
+      TaxonomicReview == 1 & N.Countries == 1 ~ "One country",
+      TaxonomicReview == 1 & N.Countries == 2 ~ "Two countries",
+      TaxonomicReview == 1 & N.Countries >= 3 ~ "Three or more countries"
+    )) %>%
+  mutate(Taxonomic_cat = factor(Taxonomic_cat,
+                                levels = c(
+                                  "no",
+                                  "Three or more countries",
+                                  "Two countries",
+                                  "One country")))
+
 m <- SppCountriesTaxonomic %>%
   drop_na(TaxonomicReview) %>%
   # convert variable to factor, ordered (descending) by the proportion of rows where order == "no"
@@ -3214,11 +3519,11 @@ m <- SppCountriesTaxonomic %>%
   coord_flip()+
   # set bar colours per order
   scale_fill_manual(values = c(
-    "One country" = "#fee090",
-    "Two countries" = "#ffa959",
-    "Three or more countries" = "#ff8f26",
+    "One country" = "#c7c7c7",
+    "Two countries" = "#919190",
+    "Three or more countries" = "#4d4d4d",
     "no" = "white"
-  )) +  # define y-axis values
+  )) +
   scale_y_continuous(breaks = seq(0, 1, .25), expand = expansion(mult = c(0, .1))) +
   # define axis titles
   labs(y = "Proportion of species described\nwith taxonomic review", x = "") +
@@ -3251,10 +3556,7 @@ ggsave(paste0(getwd(), "/figures/Figure4.PropMolecularByTaxa.pdf"),
 
 rm(list = ls()); gc()
 
-#####
-
-# 11) Relationship international description vs. molecular & taxonomic review.
-################################################################################
+# 10) Relationship international description vs. molecular & taxonomic review.----
 load("Dataset.Rdata")
 
 mydata <- data
@@ -3586,5 +3888,3 @@ ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.pdf"),
 #       plot=fig, width=20, height=6, units="in", dpi = "print")
 #ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.tiff"), 
 #       plot=fig, width=20, height=6, units="in", dpi = "print")
-
-#### END OF THE SCRIPT ####
