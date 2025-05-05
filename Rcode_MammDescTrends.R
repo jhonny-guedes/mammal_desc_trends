@@ -2077,7 +2077,6 @@ data$SpeciesName <- stringr::str_to_sentence(data$SpeciesName)
 data$SpeciesName <- gsub(' ', '_', data$SpeciesName) 
 data$SpeciesName <- stringr::str_trim(data$SpeciesName) # remove whitespaces from end and begining
 
-
 # The phylogenetic trees provided are 100-randomly selected  phylogenies from 
 # Upham et al. (2019). PLoS Biology, 17(12), 1–44. https://doi.org/10.1371/journal.pbio.3000494
 mammal_tree <- ape::read.nexus(
@@ -2124,30 +2123,33 @@ rm(fuzzy_match, spp_to_fix, corrected_spp)
 data <- as.data.frame(data)
 rownames(data) <- data[ , 'SpeciesName']
 
-
 # Load model residuals, then create distinct datasets for each response to account for NAs
 # evidence I
-load("model_outputs/mod.evi.I.Rdata") ; evi_residsI <- resid(mod.evi.nb)
-load("model_outputs/mod.evi.I.bats.Rdata") ; evi_residsI_bats <- resid(mod.evi.nb)
-load("model_outputs/mod.evi.I.rodents.Rdata") ; evi_residsI_rodents <- resid(mod.evi.gau)
+#load("model_outputs/mod.evi.I.Rdata") ; evi_residsI <- resid(mod.evi.nb)
+#load("model_outputs/mod.evi.I.bats.Rdata") ; evi_residsI_bats <- resid(mod.evi.nb)
+#load("model_outputs/mod.evi.I.rodents.Rdata") ; evi_residsI_rodents <- resid(mod.evi.gau)
 
 # evidence II
 load("model_outputs/mod.evi.II.Rdata") ; evi_residsII <- resid(mod.evi2.gau)
+load("model_outputs/mod.evi.II.without.Rdata") ; evi_residsII_without <- resid(mod.evi2.gau.without)
 load("model_outputs/mod.evi.II.bats.Rdata") ; evi_residsII_bats <- resid(mod.evi2.gau)
 load("model_outputs/mod.evi.II.rodents.Rdata") ; evi_residsII_rodents <- resid(mod.evi2.gau)
 
 # Pages
 load("model_outputs/mod.pages.Rdata") ; pag_resids <- resid(mod.pages)
+load("model_outputs/mod.pages.without.Rdata") ; pag_resids_without <- resid(mod.pages.without)
 load("model_outputs/mod.pages.bats.Rdata") ; pag_resids_bats <- resid(mod.pages)
 load("model_outputs/mod.pages.rodents.Rdata") ; pag_resids_rodents <- resid(mod.pages)
 
 # N. Specimens
 load("model_outputs/mod.ts.Rdata") ; ts_resids <- resid(mod.ts)
+load("model_outputs/mod.ts.without.Rdata") ; ts_resids_without <- resid(mod.ts.without)
 load("model_outputs/mod.ts.bats.Rdata") ; ts_resids_bats <- resid(mod.ts)
 load("model_outputs/mod.ts.rodents.Rdata") ; ts_resids_rodents <- resid(mod.ts)
 
 # Taxa compared
 load("model_outputs/mod.tcom.Rdata") ; tcom_resids <- resid(mod.tcom)
+load("model_outputs/mod.tcom.without.Rdata") ; tcom_resids_without <- resid(mod.tcom.without)
 load("model_outputs/mod.tcom.bats.Rdata") ; tcom_resids_bats <- resid(mod.tcom)
 load("model_outputs/mod.tcom.rodents.Rdata") ; tcom_resids_rodents <- resid(mod.tcom)
 
@@ -2155,91 +2157,189 @@ load("model_outputs/mod.tcom.rodents.Rdata") ; tcom_resids_rodents <- resid(mod.
 rm(mod.evi.gau, mod.evi.nb, mod.evi2.gau, mod.pages, mod.ts, mod.tcom)
 
 # Add residual values into datasets (for all mammals as well as bats and rodents separately)
-evi_datI <- as.data.frame(cbind( data[ ! is.na(data$N_evidencesI) , ], evi_residsI)); rm(evi_residsI)
-evi_datI_bats <- as.data.frame(cbind( data[ data$Order == 'Chiroptera' & (! is.na(data$N_evidencesI)) , ], evi_residsI_bats)); rm(evi_residsI_bats)
-evi_datI_rodents <- as.data.frame(cbind( data[ data$Order == 'Rodentia' & (! is.na(data$N_evidencesI)) , ], evi_residsI_rodents)); rm(evi_residsI_rodents)
+#evi_datI <- as.data.frame(cbind( data[ ! is.na(data$N_evidencesI) , ], evi_residsI)); rm(evi_residsI)
+#evi_datI_bats <- as.data.frame(cbind( data[ data$Order == 'Chiroptera' & (! is.na(data$N_evidencesI)) , ], evi_residsI_bats)); rm(evi_residsI_bats)
+#evi_datI_rodents <- as.data.frame(cbind( data[ data$Order == 'Rodentia' & (! is.na(data$N_evidencesI)) , ], evi_residsI_rodents)); rm(evi_residsI_rodents)
 
-evi_datII <- as.data.frame(cbind( data[ ! is.na(data$N_evidencesII) , ], evi_residsII)); rm(evi_residsII)
-evi_datII_bats <- as.data.frame(cbind( data[ data$Order == 'Chiroptera' & (! is.na(data$N_evidencesII)) , ], evi_residsII_bats)); rm(evi_residsII_bats)
-evi_datII_rodents <- as.data.frame(cbind( data[ data$Order == 'Rodentia' & (! is.na(data$N_evidencesII)) , ], evi_residsII_rodents)); rm(evi_residsII_rodents)
+# N. evidences II
+evi_datII <- as.data.frame(
+  cbind( 
+    data[ ! is.na(data$N_evidencesII) , ], evi_residsII
+    )
+  ); rm(evi_residsII)
+evi_datII_bats <- as.data.frame(
+  cbind(
+    data[ data$Order == 'Chiroptera' & (! is.na(data$N_evidencesII)) , ],
+    evi_residsII_bats
+    )
+  ); rm(evi_residsII_bats)
+evi_datII_without <- as.data.frame(
+  cbind(
+    data[ data$Order != 'Chiroptera' & data$Order != 'Rodentia' & (! is.na(data$N_evidencesII)) , ]
+    , evi_residsII_without
+    )
+  ); rm(evi_residsII_without)
+evi_datII_rodents <- as.data.frame(
+  cbind(
+    data[data$Order == "Rodentia" & !is.na(data$N_evidencesII), ],
+    evi_residsII_rodents
+  )
+); rm(evi_residsII_rodents)
 
-pages_dat <- as.data.frame(cbind( data[ ! is.na(data$N.Pages) , ], pag_resids)); rm(pag_resids)
-pages_dat_bats <- as.data.frame(cbind( data[ data$Order == 'Chiroptera' & (! is.na(data$N.Pages)) , ], pag_resids_bats)); rm(pag_resids_bats)
-pages_dat_rodents <- as.data.frame(cbind( data[ data$Order == 'Rodentia' & (! is.na(data$N.Pages)) , ], pag_resids_rodents)); rm(pag_resids_rodents)
+# N. Pages
+pages_dat <- as.data.frame(
+  cbind(
+    data[!is.na(data$N.Pages), ],
+    pag_resids
+  )
+); rm(pag_resids)
+pages_dat_bats <- as.data.frame(
+  cbind(
+    data[data$Order == "Chiroptera" & !is.na(data$N.Pages), ],
+    pag_resids_bats
+  )
+); rm(pag_resids_bats)
+pages_dat_without <- as.data.frame(
+  cbind(
+    data[
+      data$Order != "Chiroptera" &
+        data$Order != "Rodentia" &
+        !is.na(data$N.Pages),
+    ],
+    pag_resids_without
+  )
+); rm(pag_resids_without)
+pages_dat_rodents <- as.data.frame(
+  cbind(
+    data[data$Order == "Rodentia" & !is.na(data$N.Pages), ],
+    pag_resids_rodents
+  )
+); rm(pag_resids_rodents)
 
-ts_dat <- as.data.frame(cbind( data[ ! is.na(data$N.Specimens) , ], ts_resids)); rm(ts_resids)
-ts_dat_bats <- as.data.frame(cbind( data[ data$Order == 'Chiroptera' & (! is.na(data$N.Specimens)) , ], ts_resids_bats)); rm(ts_resids_bats)
-ts_dat_rodents <- as.data.frame(cbind( data[ data$Order == 'Rodentia' & (! is.na(data$N.Specimens)) , ], ts_resids_rodents)); rm(ts_resids_rodents)
+# N. Specimens (ts)
+ts_dat <- as.data.frame(
+  cbind(
+    data[!is.na(data$N.Specimens), ],
+    ts_resids
+  )
+); rm(ts_resids)
+ts_dat_without <- as.data.frame(
+  cbind(
+    data[
+      data$Order != "Chiroptera" &
+        data$Order != "Rodentia" &
+        !is.na(data$N.Specimens),
+    ],
+    ts_resids_without
+  )
+); rm(ts_resids_without)
+ts_dat_bats <- as.data.frame(
+  cbind(
+    data[data$Order == "Chiroptera" & !is.na(data$N.Specimens), ],
+    ts_resids_bats
+  )
+); rm(ts_resids_bats)
+ts_dat_rodents <- as.data.frame(
+  cbind(
+    data[data$Order == "Rodentia" & !is.na(data$N.Specimens), ],
+    ts_resids_rodents
+  )
+); rm(ts_resids_rodents)
 
-tcom_dat <- as.data.frame(cbind( data[ ! is.na(data$TaxaCompared) , ], tcom_resids)); rm(tcom_resids)
-tcom_dat_bats <- as.data.frame(cbind( data[ data$Order == 'Chiroptera' & (! is.na(data$TaxaCompared)) , ], tcom_resids_bats)); rm(tcom_resids_bats)
-tcom_dat_rodents <- as.data.frame(cbind( data[ data$Order == 'Rodentia' & (! is.na(data$TaxaCompared)) , ], tcom_resids_rodents)); rm(tcom_resids_rodents)
+# Taxa compared (tcom)
+tcom_dat <- as.data.frame(
+  cbind(
+    data[!is.na(data$TaxaCompared), ],
+    tcom_resids
+  )
+); rm(tcom_resids)
+tcom_dat_without <- as.data.frame(
+  cbind(
+    data[
+      data$Order != "Chiroptera" &
+        data$Order != "Rodentia" &
+        !is.na(data$TaxaCompared),
+    ],
+    tcom_resids_without
+  )
+); rm(tcom_resids_without)
+tcom_dat_bats <- as.data.frame(
+  cbind(
+    data[data$Order == "Chiroptera" & !is.na(data$TaxaCompared), ],
+    tcom_resids_bats
+  )
+); rm(tcom_resids_bats)
+tcom_dat_rodents <- as.data.frame(
+  cbind(
+    data[data$Order == "Rodentia" & !is.na(data$TaxaCompared), ],
+    tcom_resids_rodents
+  )
+); rm(tcom_resids_rodents)
 
+## All mammals  ----
 
-################# ALL MAMMALS COMBINED #####################-
-
-#------------------------------------------------------------#
-# Number of evidence I
-#------------------------------------------------------------#
-
-# Check if we have the same spp in our data as in the tree
-obj <- geiger::name.check(mammal_tree[[1]], evi_datI)
-
-# Drop species not present on the tree
-evi_datI <- evi_datI[ ! evi_datI$SpeciesName %in% obj$data_not_tree , ]
-
-# Remove species present on the tree but not on the dataset
-phylo_tree_evi<-list()
-
-# Remove spp that are in the phylogeny but not in the dataset
-for (i in 1:100) {
-  phylo_tree_evi[[i]] <- drop.tip(mammal_tree[[i]], obj$tree_not_data)
-} 
-name.check(phylo_tree_evi[[1]], evi_datI); rm(obj) # OK = all species on phylogeny matching those on the data frame
-
-# Prepare workspace for parallel computing:
-cl <- makePSOCKcluster(detectCores()*0.5, type = 'SOCK') # selecting half of all available cores
-registerDoParallel(cl)
-getDoParWorkers()
-
-{
-  PhyCorr_evi_I<-foreach(i = 1:100, 
-                         .export = 'rbind',
-                         .packages = c("data.table", "phylobase", "phylosignal"))  %dopar% {
-                           
-                           # Select one trimmed fully-sampled tree:
-                           my_tree<-phylo_tree_evi[[i]]
-                           
-                           # Create a phylo4 object including GLMM model residuals:
-                           phylo4d_filter<-phylobase::phylo4d(x=my_tree, data.frame(GLM_resid=evi_datI$evi_residsI))
-                           
-                           # Compute the phylogenetic correlogram:
-                           phy.cor<-phylosignal::phyloCorrelogram(p4d=phylo4d_filter, trait=names(tdata(phylo4d_filter)),
-                                                                  dist.phylo="patristic", n.points=14, ci.bs=100)
-                           
-                           correlogram_data<-as.data.frame(phy.cor[[1]])
-                           names(correlogram_data)<-c("dist.class", "lower_ci", "upper_ci", "coef")
-                           correlogram_data$Iter<-i
-                           correlogram_data$N_class<-1:14
-                           correlogram_data
-                           
-                         }
-  stopCluster(cl) # terminate cluster
-}
-
-# Extract the average correlogram output across iterations:
-PhyCorr_evi_I<- as.data.table(rbindlist(PhyCorr_evi_I))
-AvgPhyCorr_evi_I<-PhyCorr_evi_I[, .(Distance=mean(dist.class, na.rm=T),
-                                    Lower_CI=mean(lower_ci, na.rm=T),
-                                    Upper_CI=mean(upper_ci, na.rm=T),
-                                    MoranI_coef=mean(coef, na.rm=T)),
-                                by = .(N_class)]
-
-# Export the results:
-dir.create('PhyloCorr')
-save(PhyCorr_evi_I, AvgPhyCorr_evi_I, file="PhyloCorr/PhyloCorr_evi_I.Rdata")
-rm(evi_datI, PhyCorr_evi_I, AvgPhyCorr_evi_I) # clean workspace
-
+##------------------------------------------------------------#
+## Number of evidence I
+##------------------------------------------------------------#
+#
+## Check if we have the same spp in our data as in the tree
+#obj <- geiger::name.check(mammal_tree[[1]], evi_datI)
+#
+## Drop species not present on the tree
+#evi_datI <- evi_datI[ ! evi_datI$SpeciesName %in% obj$data_not_tree , ]
+#
+## Remove species present on the tree but not on the dataset
+#phylo_tree_evi<-list()
+#
+## Remove spp that are in the phylogeny but not in the dataset
+#for (i in 1:100) {
+#  phylo_tree_evi[[i]] <- drop.tip(mammal_tree[[i]], obj$tree_not_data)
+#} 
+#name.check(phylo_tree_evi[[1]], evi_datI); rm(obj) # OK = all species on phylogeny matching those on the data frame
+#
+## Prepare workspace for parallel computing:
+#cl <- makePSOCKcluster(detectCores()*0.5, type = 'SOCK') # selecting half of all available cores
+#registerDoParallel(cl)
+#getDoParWorkers()
+#
+#{
+#  PhyCorr_evi_I<-foreach(i = 1:100, 
+#                         .export = 'rbind',
+#                         .packages = c("data.table", "phylobase", "phylosignal"))  %dopar% {
+#                           
+#                           # Select one trimmed fully-sampled tree:
+#                           my_tree<-phylo_tree_evi[[i]]
+#                           
+#                           # Create a phylo4 object including GLMM model residuals:
+#                           phylo4d_filter<-phylobase::phylo4d(x=my_tree, data.frame(GLM_resid=evi_datI$evi_residsI))
+#                           
+#                           # Compute the phylogenetic correlogram:
+#                           phy.cor<-phylosignal::phyloCorrelogram(p4d=phylo4d_filter, trait=names(tdata(phylo4d_filter)),
+#                                                                  dist.phylo="patristic", n.points=14, ci.bs=100)
+#                           
+#                           correlogram_data<-as.data.frame(phy.cor[[1]])
+#                           names(correlogram_data)<-c("dist.class", "lower_ci", "upper_ci", "coef")
+#                           correlogram_data$Iter<-i
+#                           correlogram_data$N_class<-1:14
+#                           correlogram_data
+#                           
+#                         }
+#  stopCluster(cl) # terminate cluster
+#}
+#
+## Extract the average correlogram output across iterations:
+#PhyCorr_evi_I<- as.data.table(rbindlist(PhyCorr_evi_I))
+#AvgPhyCorr_evi_I<-PhyCorr_evi_I[, .(Distance=mean(dist.class, na.rm=T),
+#                                    Lower_CI=mean(lower_ci, na.rm=T),
+#                                    Upper_CI=mean(upper_ci, na.rm=T),
+#                                    MoranI_coef=mean(coef, na.rm=T)),
+#                                by = .(N_class)]
+#
+## Export the results:
+#dir.create('PhyloCorr')
+#save(PhyCorr_evi_I, AvgPhyCorr_evi_I, file="PhyloCorr/PhyloCorr_evi_I.Rdata")
+#rm(evi_datI, PhyCorr_evi_I, AvgPhyCorr_evi_I) # clean workspace
+#
 #------------------------------------------------------------#
 # Number of evidence II
 #------------------------------------------------------------#
@@ -2485,9 +2585,317 @@ AvgPhyCorr_tcom<-PhyCorr_tcom[, .(Distance=mean(dist.class, na.rm=T),
 save(PhyCorr_tcom, AvgPhyCorr_tcom, file="PhyloCorr/PhyloCorr_tcom.Rdata")
 rm(tcom_dat, PhyCorr_tcom, AvgPhyCorr_tcom) # clean workspace
 
+## Non-bats & non-rodents ----
+
+#------------------------------------------------------------#
+# Number of evidence I
+#------------------------------------------------------------#
+
+# Check if we have the same spp in our data as in the tree
+#obj <- geiger::name.check(mammal_tree[[1]], evi_datI)
+#
+## Drop species not present on the tree
+#evi_datI <- evi_datI[ ! evi_datI$SpeciesName %in% obj$data_not_tree , ]
+#
+## Remove species present on the tree but not on the dataset
+#phylo_tree_evi<-list()
+#
+## Remove spp that are in the phylogeny but not in the dataset
+#for (i in 1:100) {
+#  phylo_tree_evi[[i]] <- drop.tip(mammal_tree[[i]], obj$tree_not_data)
+#} 
+#name.check(phylo_tree_evi[[1]], evi_datI); rm(obj) # OK = all species on phylogeny matching those on the data frame
+#
+## Prepare workspace for parallel computing:
+#cl <- makePSOCKcluster(detectCores()*0.5, type = 'SOCK') # selecting half of all available cores
+#registerDoParallel(cl)
+#getDoParWorkers()
+#
+#{
+#  PhyCorr_evi_I<-foreach(i = 1:100, 
+#                         .export = 'rbind',
+#                         .packages = c("data.table", "phylobase", "phylosignal"))  %dopar% {
+#                           
+#                           # Select one trimmed fully-sampled tree:
+#                           my_tree<-phylo_tree_evi[[i]]
+#                           
+#                           # Create a phylo4 object including GLMM model residuals:
+#                           phylo4d_filter<-phylobase::phylo4d(x=my_tree, data.frame(GLM_resid=evi_datI$evi_residsI))
+#                           
+#                           # Compute the phylogenetic correlogram:
+#                           phy.cor<-phylosignal::phyloCorrelogram(p4d=phylo4d_filter, trait=names(tdata(phylo4d_filter)),
+#                                                                  dist.phylo="patristic", n.points=14, ci.bs=100)
+#                           
+#                           correlogram_data<-as.data.frame(phy.cor[[1]])
+#                           names(correlogram_data)<-c("dist.class", "lower_ci", "upper_ci", "coef")
+#                           correlogram_data$Iter<-i
+#                           correlogram_data$N_class<-1:14
+#                           correlogram_data
+#                           
+#                         }
+#  stopCluster(cl) # terminate cluster
+#}
+#
+## Extract the average correlogram output across iterations:
+#PhyCorr_evi_I<- as.data.table(rbindlist(PhyCorr_evi_I))
+#AvgPhyCorr_evi_I<-PhyCorr_evi_I[, .(Distance=mean(dist.class, na.rm=T),
+#                                    Lower_CI=mean(lower_ci, na.rm=T),
+#                                    Upper_CI=mean(upper_ci, na.rm=T),
+#                                    MoranI_coef=mean(coef, na.rm=T)),
+#                                by = .(N_class)]
+#
+## Export the results:
+#dir.create('PhyloCorr')
+#save(PhyCorr_evi_I, AvgPhyCorr_evi_I, file="PhyloCorr/PhyloCorr_evi_I.Rdata")
+#rm(evi_datI, PhyCorr_evi_I, AvgPhyCorr_evi_I) # clean workspace
+
+#------------------------------------------------------------#
+# Number of evidence II
+#------------------------------------------------------------#
+
+# Check if we have the same spp in our data as in the tree
+obj <- geiger::name.check(mammal_tree[[1]], evi_datII_without)
+
+# Drop species not present on the tree
+evi_datII_without <- evi_datII_without[ ! evi_datII_without$SpeciesName %in% obj$data_not_tree , ]
+
+# Remove species present on the tree but not on the dataset
+phylo_tree_evi<- list()
+
+# Remove spp that are in the phylogeny but not in the dataset
+for (i in 1:100) {
+  phylo_tree_evi[[i]] <- drop.tip(mammal_tree[[i]], obj$tree_not_data)
+} 
+name.check(phylo_tree_evi[[1]], evi_datII_without); rm(obj) # OK = all species on phylogeny matching those on the data frame
+
+# Prepare workspace for parallel computing:
+cl <- makePSOCKcluster(detectCores()*0.5, type = 'SOCK')
+registerDoParallel(cl)
+getDoParWorkers()
+
+{
+  PhyCorr_evi_II_without<-foreach(i = 1:100, 
+                          .export = 'rbind',
+                          .packages = c("data.table", "phylobase", "phylosignal"))  %dopar% {
+                            
+                            # Select one trimmed fully-sampled tree:
+                            my_tree<-phylo_tree_evi[[i]]
+                            
+                            # Create a phylo4 object including GLMM model residuals:
+                            phylo4d_filter<-phylobase::phylo4d(x=my_tree, data.frame(GLM_resid=evi_datII_without$evi_residsII_without))
+                            
+                            # Compute the phylogenetic correlogram:
+                            phy.cor<-phylosignal::phyloCorrelogram(p4d=phylo4d_filter, trait=names(tdata(phylo4d_filter)),
+                                                                   dist.phylo="patristic", n.points=14, ci.bs=100)
+                            
+                            correlogram_data<-as.data.frame(phy.cor[[1]])
+                            names(correlogram_data)<-c("dist.class", "lower_ci", "upper_ci", "coef")
+                            correlogram_data$Iter<-i
+                            correlogram_data$N_class<-1:14
+                            correlogram_data
+                            
+                          }
+  stopCluster(cl) # terminate cluster
+}
+
+# Extract the average correlogram output across iterations:
+PhyCorr_evi_II_without<-as.data.table(rbindlist(PhyCorr_evi_II_without))
+AvgPhyCorr_evi_II_without<-PhyCorr_evi_II_without[, .(Distance=mean(dist.class, na.rm=T),
+                                      Lower_CI=mean(lower_ci, na.rm=T),
+                                      Upper_CI=mean(upper_ci, na.rm=T),
+                                      MoranI_coef=mean(coef, na.rm=T)),
+                                  by = .(N_class)]
+
+# Export the results:
+save(PhyCorr_evi_II_without, AvgPhyCorr_evi_II_without,
+     file="PhyloCorr/PhyloCorr_evi_II_without.Rdata")
+rm(evi_datII_without, PhyCorr_evi_II_without, AvgPhyCorr_evi_II_without) # clean workspace
+
+#------------------------------------------------------------#
+# Number of specimens
+#------------------------------------------------------------#
+
+# Check if we have the same spp in our data as in the tree
+obj <- geiger::name.check(mammal_tree[[1]], ts_dat_without)
+
+# Drop species not present on the tree
+ts_dat_without <- ts_dat_without[ ! ts_dat_without$SpeciesName %in% obj$data_not_tree , ]
+
+# Remove species present on the tree but not on the dataset
+phylo_tree_ts<-list()
+
+# Remove spp that are in the phylogeny but not in the dataset
+for (i in 1:100) {
+  phylo_tree_ts[[i]] <- drop.tip(mammal_tree[[i]], obj$tree_not_data)
+} 
+name.check(phylo_tree_ts[[1]], ts_dat); rm(obj) # OK = all species on phylogeny matching those on the data frame
+
+# Prepare workspace for parallel computing:
+cl <- makePSOCKcluster(detectCores()*0.5, type = 'SOCK')
+registerDoParallel(cl)
+getDoParWorkers()
+
+{
+  PhyCorr_ts_without<-foreach(i = 1:100, 
+                      .export = 'rbind',
+                      .packages = c("data.table", "phylobase", "phylosignal"))  %dopar% {
+                        
+                        # Select one trimmed fully-sampled tree:
+                        my_tree<-phylo_tree_ts[[i]]
+                        
+                        # Create a phylo4 object including GLMM model residuals:
+                        phylo4d_filter<-phylobase::phylo4d(x=my_tree, data.frame(GLM_resid=ts_dat_without$ts_resids))
+                        
+                        # Compute the phylogenetic correlogram:
+                        phy.cor<-phylosignal::phyloCorrelogram(p4d=phylo4d_filter, trait=names(tdata(phylo4d_filter)),
+                                                               dist.phylo="patristic", n.points=14, ci.bs=100)
+                        
+                        correlogram_data<-as.data.frame(phy.cor[[1]])
+                        names(correlogram_data)<-c("dist.class", "lower_ci", "upper_ci", "coef")
+                        correlogram_data$Iter<-i
+                        correlogram_data$N_class<-1:14
+                        correlogram_data
+                        
+                      }
+  stopCluster(cl) # terminate cluster
+}
+
+# Extract the average correlogram output across iterations:
+PhyCorr_ts_without<-as.data.table(rbindlist(PhyCorr_ts_without))
+AvgPhyCorr_ts_without<-PhyCorr_ts_without[, .(Distance=mean(dist.class, na.rm=T),
+                              Lower_CI=mean(lower_ci, na.rm=T),
+                              Upper_CI=mean(upper_ci, na.rm=T),
+                              MoranI_coef=mean(coef, na.rm=T)),
+                          by = .(N_class)]
+
+# Export the results:
+save(PhyCorr_ts_without, AvgPhyCorr_ts_without, file="PhyloCorr/PhyloCorr_ts_without.Rdata")
+rm(ts_dat_without, PhyCorr_ts_without, AvgPhyCorr_ts_without) # clean workspace
+
+#------------------------------------------------------------#
+# Number of pages
+#------------------------------------------------------------#
+
+# Check if we have the same spp in our data as in the tree
+obj <- geiger::name.check(mammal_tree[[1]], pages_dat_without)
+
+# Drop species not present on the tree
+pages_dat_without <- pages_dat_without[ ! pages_dat_without$SpeciesName %in% obj$data_not_tree , ]
+
+# Remove species present on the tree but not on the dataset
+phylo_tree_pages<-list()
+
+# Remove spp that are in the phylogeny but not in the dataset
+for (i in 1:100) {
+  phylo_tree_pages[[i]] <- drop.tip(mammal_tree[[i]], obj$tree_not_data)
+} 
+name.check(phylo_tree_pages[[1]], pages_dat_without); rm(obj) # OK = all species on phylogeny matching those on the data frame
+
+# Prepare workspace for parallel computing:
+cl <- makePSOCKcluster(detectCores()*0.5, type = 'SOCK')
+registerDoParallel(cl)
+getDoParWorkers()
+
+{
+  PhyCorr_pages_without<-foreach(i = 1:100, 
+                         .export = 'rbind',
+                         .packages = c("data.table", "phylobase", "phylosignal"))  %dopar% {
+                           
+                           # Select one trimmed fully-sampled tree:
+                           my_tree<-phylo_tree_pages[[i]]
+                           
+                           # Create a phylo4 object including GLMM model residuals:
+                           phylo4d_filter<-phylobase::phylo4d(x=my_tree, data.frame(GLM_resid=pages_dat_without$pag_resids_without))
+                           
+                           # Compute the phylogenetic correlogram:
+                           phy.cor<-phylosignal::phyloCorrelogram(p4d=phylo4d_filter, trait=names(tdata(phylo4d_filter)),
+                                                                  dist.phylo="patristic", n.points=14, ci.bs=100)
+                           
+                           correlogram_data<-as.data.frame(phy.cor[[1]])
+                           names(correlogram_data)<-c("dist.class", "lower_ci", "upper_ci", "coef")
+                           correlogram_data$Iter<-i
+                           correlogram_data$N_class<-1:14
+                           correlogram_data
+                           
+                         }
+  stopCluster(cl) # terminate cluster
+}
+
+# Extract the average correlogram output across iterations:
+PhyCorr_pages_without<-as.data.table(rbindlist(PhyCorr_pages_without))
+AvgPhyCorr_pages_without<-PhyCorr_pages_without[, .(Distance=mean(dist.class, na.rm=T),
+                                    Lower_CI=mean(lower_ci, na.rm=T),
+                                    Upper_CI=mean(upper_ci, na.rm=T),
+                                    MoranI_coef=mean(coef, na.rm=T)),
+                                by = .(N_class)]
+
+# Export the results:
+save(PhyCorr_pages_without, AvgPhyCorr_pages_without, file="PhyloCorr/PhyloCorr_pages_without.Rdata")
+rm(pages_dat_without, PhyCorr_pages_without, AvgPhyCorr_pages_without) # clean workspace
 
 
-################# BATS #####################-
+#------------------------------------------------------------#
+# Number of taxa compared
+#------------------------------------------------------------#
+
+# Check if we have the same spp in our data as in the tree
+obj <- geiger::name.check(mammal_tree[[1]], tcom_dat_without)
+
+# Drop species not present on the tree
+tcom_dat_without <- tcom_dat_without[ ! tcom_dat_without$SpeciesName %in% obj$data_not_tree , ]
+
+# Remove species present on the tree but not on the dataset
+phylo_tree_tcom<-list()
+
+# Remove spp that are in the phylogeny but not in the dataset
+for (i in 1:100) {
+  phylo_tree_tcom[[i]] <- drop.tip(mammal_tree[[i]], obj$tree_not_data)
+} 
+name.check(phylo_tree_tcom[[1]], tcom_dat_without); rm(obj) # OK = all species on phylogeny matching those on the data frame
+
+# Prepare workspace for parallel computing:
+cl <- makePSOCKcluster(detectCores()*0.5, type = 'SOCK')
+registerDoParallel(cl)
+getDoParWorkers()
+
+{
+  PhyCorr_tcom_without<-foreach(i = 1:100, 
+                        .export = 'rbind',
+                        .packages = c("data.table", "phylobase", "phylosignal"))  %dopar% {
+                          
+                          # Select one trimmed fully-sampled tree:
+                          my_tree<-phylo_tree_tcom[[i]]
+                          
+                          # Create a phylo4 object including GLMM model residuals:
+                          phylo4d_filter<-phylobase::phylo4d(x=my_tree, data.frame(GLM_resid=tcom_dat_without$tcom_resids_without))
+                          
+                          # Compute the phylogenetic correlogram:
+                          phy.cor<-phylosignal::phyloCorrelogram(p4d=phylo4d_filter, trait=names(tdata(phylo4d_filter)),
+                                                                 dist.phylo="patristic", n.points=14, ci.bs=100)
+                          
+                          correlogram_data<-as.data.frame(phy.cor[[1]])
+                          names(correlogram_data)<-c("dist.class", "lower_ci", "upper_ci", "coef")
+                          correlogram_data$Iter<-i
+                          correlogram_data$N_class<-1:14
+                          correlogram_data
+                          
+                        }
+  stopCluster(cl) # terminate cluster
+}
+
+# Extract the average correlogram output across iterations:
+PhyCorr_tcom_without<-as.data.table(rbindlist(PhyCorr_tcom_without))
+AvgPhyCorr_tcom_without<-PhyCorr_tcom_without[, .(Distance=mean(dist.class, na.rm=T),
+                                  Lower_CI=mean(lower_ci, na.rm=T),
+                                  Upper_CI=mean(upper_ci, na.rm=T),
+                                  MoranI_coef=mean(coef, na.rm=T)),
+                              by = .(N_class)]
+
+# Export the results:
+save(PhyCorr_tcom_without, AvgPhyCorr_tcom_without, file="PhyloCorr/PhyloCorr_tcom_without.Rdata")
+rm(tcom_dat_without, PhyCorr_tcom_without, AvgPhyCorr_tcom_without) # clean workspace
+
+## Bats ----
 
 #------------------------------------------------------------#
 # Number of evidence I
@@ -2797,7 +3205,7 @@ rm(tcom_dat_bats, PhyCorr_tcom_bats, AvgPhyCorr_tcom_bats) # clean workspace
 
 
 
-################# RODENTS #####################-
+## Rodents ----
 
 #------------------------------------------------------------#
 # Number of evidence I
@@ -3106,23 +3514,27 @@ save(PhyCorr_tcom_rodents, AvgPhyCorr_tcom_rodents, file="PhyloCorr/PhyloCorr_tc
 rm(tcom_dat_rodents, PhyCorr_tcom_rodents, AvgPhyCorr_tcom_rodents) # clean workspace
 
 # 8) Make phylogenetic correlograms.----
-################# ALL MAMMALS COMBINED #####################-
 
-# Load data
 # All mammals
-load('PhyloCorr/PhyloCorr_evi_I.Rdata')
+#load('PhyloCorr/PhyloCorr_evi_I.Rdata')
 load('PhyloCorr/PhyloCorr_evi_II.Rdata')
 load('PhyloCorr/PhyloCorr_ts.Rdata')
 load('PhyloCorr/PhyloCorr_pages.Rdata')
 load('PhyloCorr/PhyloCorr_tcom.Rdata')
+# Non-bats & non-rodents
+#load('PhyloCorr/PhyloCorr_evi_I_without.Rdata')
+load('PhyloCorr/PhyloCorr_evi_II_without.Rdata')
+load('PhyloCorr/PhyloCorr_ts_without.Rdata')
+load('PhyloCorr/PhyloCorr_pages_without.Rdata')
+load('PhyloCorr/PhyloCorr_tcom_without.Rdata')
 # Bats
-load('PhyloCorr/PhyloCorr_evi_I_bats.Rdata')
+#load('PhyloCorr/PhyloCorr_evi_I_bats.Rdata')
 load('PhyloCorr/PhyloCorr_evi_II_bats.Rdata')
 load('PhyloCorr/PhyloCorr_ts_bats.Rdata')
 load('PhyloCorr/PhyloCorr_pages_bats.Rdata')
 load('PhyloCorr/PhyloCorr_tcom_bats.Rdata')
 # Rodents
-load('PhyloCorr/PhyloCorr_evi_I_rodents.Rdata')
+#load('PhyloCorr/PhyloCorr_evi_I_rodents.Rdata')
 load('PhyloCorr/PhyloCorr_evi_II_rodents.Rdata')
 load('PhyloCorr/PhyloCorr_ts_rodents.Rdata')
 load('PhyloCorr/PhyloCorr_pages_rodents.Rdata')
@@ -3131,16 +3543,19 @@ load('PhyloCorr/PhyloCorr_tcom_rodents.Rdata')
 # Combine and create column to differentiate responses
 # Run one at a time
 # All mammals
-Corr_list <- list(AvgPhyCorr_evi_I, AvgPhyCorr_evi_II, AvgPhyCorr_ts, AvgPhyCorr_pages, AvgPhyCorr_tcom)
+Corr_list <- list(AvgPhyCorr_evi_II, AvgPhyCorr_ts, AvgPhyCorr_pages, AvgPhyCorr_tcom)
+# Non-bats & non-rodents
+Corr_list <- list(AvgPhyCorr_evi_II_without, AvgPhyCorr_ts_without,
+                  AvgPhyCorr_pages_without, AvgPhyCorr_tcom_without)
 # Bats
-Corr_list <- list(AvgPhyCorr_evi_I_bats, AvgPhyCorr_evi_II_bats,
-                  AvgPhyCorr_ts_bats, AvgPhyCorr_pages_bats, AvgPhyCorr_tcom_bats)
+Corr_list <- list(AvgPhyCorr_evi_II_bats, AvgPhyCorr_ts_bats,
+                  AvgPhyCorr_pages_bats, AvgPhyCorr_tcom_bats)
 # Rodents
-Corr_list <- list(AvgPhyCorr_evi_I_rodents, AvgPhyCorr_evi_II_rodents,
-                  AvgPhyCorr_ts_rodents, AvgPhyCorr_pages_rodents, AvgPhyCorr_tcom_rodents)
+Corr_list <- list(AvgPhyCorr_evi_II_rodents, AvgPhyCorr_ts_rodents,
+                  AvgPhyCorr_pages_rodents, AvgPhyCorr_tcom_rodents)
 
 # Create a vector to add a new column informing the region in the datasets
-response <- c('N. evidence I', 'N. evidence II', 'N. preserved\nspecimens', 'N. pages', 'N. taxa\ncompared')
+response <- c('N. evidence II', 'N. preserved\nspecimens', 'N. pages', 'N. taxa\ncompared')
 
 for (i in seq_along(Corr_list)) {
   Corr_list[[i]]$Response <- response[i]
@@ -3173,8 +3588,10 @@ MyCorrelogram <- ggplot(Corr_list, aes(x = Distance, y = MoranI_coef, colour = R
         panel.spacing=unit(0,"null")); MyCorrelogram
 
 # Save to disk
-ggsave(paste0(getwd(), "/figures/FigureS2.PhyloCorrelogram_rodents.pdf"), plot=MyCorrelogram, width=5, height=4, units="in", bg = 'transparent', dpi = "print")
-ggsave(paste0(getwd(), "/figures/FigureS2.PhyloCorrelogram_rodents.jpg"), plot=MyCorrelogram, width=5, height=4, units="in", bg = 'white', dpi = "print")
+ggsave(paste0(getwd(), "/figures/FigureS2.PhyloCorrelogram_rodents.pdf"),
+       plot=MyCorrelogram, width=5, height=4, units="in", bg = 'transparent', dpi = "print")
+ggsave(paste0(getwd(), "/figures/FigureS2.PhyloCorrelogram_rodents.jpg"),
+       plot=MyCorrelogram, width=5, height=4, units="in", bg = 'white', dpi = "print")
 
 rm(list = ls()); gc() # clean workspace and garbage collection
 
