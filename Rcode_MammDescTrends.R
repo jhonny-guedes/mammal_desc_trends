@@ -36,10 +36,26 @@ rm(list=ls()); gc()
 setwd() # DEFINE YOUR WORKING DIRECTORY (THE FOLDER WITH FILES NEEDED TO REPLICATE THE FINDING OF THIS STUDY)
 
 # 1) Load and understand the dataset ----
+
+# # Correlation with TypeSeries and N. Specimens
+#local_directory <-  file.path("C:", "Users", "mmoro",
+#                              "OneDrive", "mammals_desc")
+#typeseries <- readxl::read_excel(
+#  file.path(local_directory,
+#            "RawDataToCompile_Mammalia.xlsx"), sheet = "SpeciesName")
+
 #data <- fread("Dataset.csv", na.strings = '') # 1032 species
 load("Dataset.Rdata")
 names(data)
 dim(data)
+
+# Pearson correlation between number of specimens and number of taxa compared
+mydata_cor <- typeseries %>% 
+  filter(!is.na(N.Specimens) & !is.na(N.TypeSeries))
+
+cor.test(log(mydata_cor$N.TypeSeries),
+         log(mydata_cor$N.Specimens), method = "pearson")
+
 # We have 30 columns in this dataset, each one explained below:
 # SpeciesName: Binomial name.
 # Genus: Taxonomic genus to which a species belongs.
@@ -101,6 +117,11 @@ prop.table(table(data$Order)) * 100
 
 # Check amounts of missing data among response variables and get other basic stats
 names(data)
+
+# Pearson correlation between number of specimens and number of taxa compared
+mydata_cor <- data %>% 
+  filter(!is.na(N.Specimens) & !is.na(TaxaComparedExamined))
+cor.test(data$TaxaCompared, data$TaxaComparedExamined, method = "pearson")
 
 # All mammals
 summary(data[ , c("N.Specimens", "TaxaComparedExamined", "TaxaCompared", 
@@ -4010,6 +4031,11 @@ comparisons <- list(
 )
 
 table(mydata$TypeOfStudy)
+
+# Pearson correlation between number of countries and number of authors
+mydata_cor <- mydata %>% 
+  filter(!is.na(N_authors) & !is.na(N.Countries))
+cor.test(mydata_cor$N_authors, mydata_cor$N.Countries, method = "pearson")
 
 # ANCOVA and post hoc test
 # All mammals
