@@ -40,21 +40,71 @@ setwd() # DEFINE YOUR WORKING DIRECTORY (THE FOLDER WITH FILES NEEDED TO REPLICA
 # # Correlation with TypeSeries and N. Specimens
 #local_directory <-  file.path("C:", "Users", "mmoro",
 #                              "OneDrive", "mammals_desc")
-#typeseries <- readxl::read_excel(
+#
+##typeseries <- readxl::read_excel(
+##  file.path(local_directory,
+##            "RawDataToCompile_Mammalia.xlsx"), sheet = "SpeciesName")
+#
+## Pearson correlation between number of specimens and number of taxa compared
+##mydata_cor <- typeseries %>% 
+##  filter(!is.na(N.Specimens) & !is.na(N.TypeSeries))
+#
+##cor.test(log(mydata_cor$N.TypeSeries),
+##         log(mydata_cor$N.Specimens), method = "pearson")
+#
+#raw_data <- read.csv2(
 #  file.path(local_directory,
-#            "RawDataToCompile_Mammalia.xlsx"), sheet = "SpeciesName")
+#            "RawDataToCompile_Mammalia.csv"))
+#
+## Exploring traits in bats
+#TetrapodTraits <- data.table::fread(
+#  file.path("..", "vertebrates_evolution", "traits", "TetrapodTraits_1.0.0.csv")
+#) 
+#
+#bats <- TetrapodTraits %>%
+#  filter(Order == "Chiroptera") %>%
+#  group_by(Genus) %>%
+#  summarise(
+#    BodyMass_mean = mean(BodyMass_g, na.rm = TRUE),
+#    Count = n()
+#  ) %>% View()
+#
+## Com dataset Moroti et al., in prep
+#bats_data <- raw_data %>%
+#  filter(Order == "Chiroptera") %>%
+#  mutate(Genus = word(SpeciesName, 1)) %>%
+#  group_by(Genus) %>%
+#  summarise(
+#    BodyMass_mean = mean(BodyMass, na.rm = TRUE),
+#    Count = n()
+#  ) %>% remove_missing()
+#
+#q <- quantile(bats_data$BodyMass_mean,
+#              probs = c(0.25, 0.5, 0.75, 0.9))
+## q[1] = Q1, q[2] = Mediana, q[3] = Q3
+#bats2 <- bats_data %>%
+#  mutate(
+#    q25  = BodyMass_mean <= q[1],
+#    q50 = BodyMass_mean <= q[2],
+#    q75 = BodyMass_mean <= q[3]
+#  )
+#
+#ggplot(bats2, aes(BodyMass_mean, Count)) +
+#  geom_point() +
+#  geom_vline(xintercept = q[1], linetype="dashed") +
+#  geom_vline(xintercept = q[2], linetype="dashed") +
+#  geom_vline(xintercept = q[3], linetype="dashed") +
+#  ggrepel::geom_text_repel(
+#    data = subset(bats2, Count > 10),
+#    aes(label = Genus),
+#    size = 3,
+#    max.overlaps = Inf)
+#
+#prop.table(table(bats2$q50)) * 100
 
-#data <- fread("Dataset.csv", na.strings = '') # 1032 species
 load("Dataset.Rdata")
 names(data)
 dim(data)
-
-# Pearson correlation between number of specimens and number of taxa compared
-mydata_cor <- typeseries %>% 
-  filter(!is.na(N.Specimens) & !is.na(N.TypeSeries))
-
-cor.test(log(mydata_cor$N.TypeSeries),
-         log(mydata_cor$N.Specimens), method = "pearson")
 
 # We have 30 columns in this dataset, each one explained below:
 # SpeciesName: Binomial name.
@@ -575,7 +625,7 @@ rm(p) # clean workspace
 # Select response, explanatory (year), and grouping variables
 names(mydata)
 new_dat <- mydata[ , c("SpeciesName", "Order", "Year","N_evidencesI", "N_evidencesII",
-                       "N.Pages", "N.Specimens", "TaxaCompared", "N.Countries")]
+                       "N.Pages", "N.Specimens", "TaxaCompared", "N.Countries", "N_authors")]
 
 # Get summary values for plotting
 create_data <- function(data) {
@@ -603,14 +653,19 @@ create_data <- function(data) {
               
               N_countries_avg = mean(N.Countries, na.rm = T),
               N_countries_sd = sd(N.Countries, na.rm = T),
-              N_countries_nspp = sum( ! is.na(N.Countries)) ) %>%
+              N_countries_nspp = sum( ! is.na(N.Countries)),
+              
+              N_authors_avg = mean(N_authors, na.rm = T),
+              N_authors_sd = sd(N_authors, na.rm = T),
+              N_authors_nspp = sum( ! is.na(N_authors))) %>%
     
     mutate(N_evidencesI_se = N_evidencesI_sd / sqrt(N_evidencesI_nspp),
            N_evidencesII_se = N_evidencesII_sd / sqrt(N_evidencesII_nspp),
            N_Pages_se = N_Pages_sd / sqrt(N_Pages_nspp),
            N_specimens_se = N_specimens_sd / sqrt(N_specimens_nspp),
            N_taxacomp_se = N_taxacomp_sd / sqrt(N_taxacomp_nspp),
-           N_countries_se = N_countries_sd / sqrt (N_countries_nspp))
+           N_countries_se = N_countries_sd / sqrt (N_countries_nspp),
+           N_authors_se = N_authors_sd / sqrt (N_authors_nspp))
   return(yearly_means)
 }
 
@@ -814,7 +869,18 @@ figF <- figF + xlab("Year of description"); FigF
 
 ggsave(paste0(getwd(), "/figures/FigureAux.Nofcountries.pdf"),
  plot=figF, width=4, height=10, units="in", dpi = "print", cairo_pdf)
-# This figure was exported to the software InkScape for minor aesthetic adjustments
+
+# Number of authors
+figG <- create_plot(yearly_means, "N. of authors involved",
+                    mean = N_authors_avg, 
+                    se = N_authors_se, 5, nrow = 2,
+                    show_titles = FALSE, show_x_labels = TRUE); figG
+
+figG <- figG + xlab("Year of description"); figG
+
+ggsave(paste0(getwd(), "/figures/FigureAux.Nofauthors.pdf"),
+       plot=figG, width=8, height=6, units="in", dpi = "print", cairo_pdf)
+
 
 # 4) Publication Robustness by Mammal Order ----
 # Get summary values for plotting
@@ -1368,7 +1434,8 @@ fwrite(results, file = 'model_outputs/model_outs_without.csv')
 # Extract R2
 results_r2 <- tibble(
   name = c("N. evidence", "N. pages", "N. specimens", "N. taxa compared"),
-  value = c(evidences_r2$R2, pages_r2$R2, nspecimens_r2$R2_Nagelkerke, taxacompared_r2$R2_Nagelkerke),
+  value = c(evidences_r2$R2, pages_r2$R2,
+            nspecimens_r2$R2_Nagelkerke, taxacompared_r2$R2_Nagelkerke),
   metric = c("R2", "R2", "R2_Nagelkerke", "R2_Nagelkerke"),
   group = "Non-bats & non-rodents"
 )
@@ -3576,7 +3643,8 @@ Corr_list <- list(AvgPhyCorr_evi_II_rodents, AvgPhyCorr_ts_rodents,
                   AvgPhyCorr_pages_rodents, AvgPhyCorr_tcom_rodents)
 
 # Create a vector to add a new column informing the region in the datasets
-response <- c('N. evidence II', 'N. preserved\nspecimens', 'N. pages', 'N. taxa\ncompared')
+response <- c('N. evidence II', 'N. preserved\nspecimens',
+              'N. pages', 'N. taxa\ncompared')
 
 for (i in seq_along(Corr_list)) {
   Corr_list[[i]]$Response <- response[i]
@@ -3584,9 +3652,16 @@ for (i in seq_along(Corr_list)) {
 
 Corr_list <- rbindlist(Corr_list) # convert to dataframe
 
+# Same color of figure 5
+MyColors <- c("#8e0152", "#bf812d", "#4d4d4d", "#d6604d")
+names(MyColors) <- c('N. evidence II', 'N. preserved\nspecimens',
+                     'N. pages', 'N. taxa\ncompared')
+
 # Make the plot
 MyCorrelogram <- ggplot(Corr_list, aes(x = Distance, y = MoranI_coef, colour = Response)) +
   geom_point(aes(shape = Response, colour = Response))+
+  scale_shape_manual(values = c(0, 1, 2, 4, 5)) +
+  scale_color_manual(values = MyColors) +  
   geom_linerange(aes(ymin = Lower_CI, ymax = Upper_CI))+
   geom_line()+
   geom_hline(yintercept=0, linetype="dashed", color="black") +
@@ -3611,8 +3686,8 @@ MyCorrelogram <- ggplot(Corr_list, aes(x = Distance, y = MoranI_coef, colour = R
 # Save to disk
 ggsave(paste0(getwd(), "/figures/FigureS2.PhyloCorrelogram_rodents.pdf"),
        plot=MyCorrelogram, width=5, height=4, units="in", bg = 'transparent', dpi = "print")
-ggsave(paste0(getwd(), "/figures/FigureS2.PhyloCorrelogram_rodents.jpg"),
-       plot=MyCorrelogram, width=5, height=4, units="in", bg = 'white', dpi = "print")
+#ggsave(paste0(getwd(), "/figures/FigureS2.PhyloCorrelogram_rodents.jpg"),
+#       plot=MyCorrelogram, width=5, height=4, units="in", bg = 'white', dpi = "print")
 
 rm(list = ls()); gc() # clean workspace and garbage collection
 
