@@ -33,7 +33,7 @@ for (i in seq_along(needed_packages)) {
 rm(list=ls()); gc()
 
 # Set working directory
-setwd() # DEFINE YOUR WORKING DIRECTORY (THE FOLDER WITH FILES NEEDED TO REPLICATE THE FINDING OF THIS STUDY)
+setwd()
 
 # 1) Load and understand the dataset ----
 
@@ -624,8 +624,6 @@ rm(p) # clean workspace
 
 # Select response, explanatory (year), and grouping variables
 names(mydata)
-new_dat <- mydata[ , c("SpeciesName", "Order", "Year","N_evidencesI", "N_evidencesII",
-                       "N.Pages", "N.Specimens", "TaxaCompared", "N.Countries", "N_authors")]
 
 # Get summary values for plotting
 create_data <- function(data) {
@@ -657,7 +655,23 @@ create_data <- function(data) {
               
               N_authors_avg = mean(N_authors, na.rm = T),
               N_authors_sd = sd(N_authors, na.rm = T),
-              N_authors_nspp = sum( ! is.na(N_authors))) %>%
+              N_authors_nspp = sum( ! is.na(N_authors)),
+              
+              Morphometrics_avg = mean(Morphometrics, na.rm = T),
+              Morphometrics_sd = sd(Morphometrics, na.rm = T),
+              Morphometrics_nspp = sum( ! is.na(Morphometrics)),
+              
+              Osteology_avg = mean(Osteology, na.rm = T),
+              Osteology_sd = sd(Osteology, na.rm = T),
+              Osteology_nspp = sum( ! is.na(Osteology)),
+              
+              N_Genes_avg = mean(N.Genes, na.rm = T),
+              N_Genes_sd = sd(N.Genes, na.rm = T),
+              N_Genes_nspp = sum( ! is.na(N.Genes)),
+              
+              R_inter_avg = mean((N.Countries/N_authors)[!is.na(N.Countries) & !is.na(N_authors)], na.rm = T),
+              R_inter_sd = sd((N.Countries/N_authors)[!is.na(N.Countries) & !is.na(N_authors)], na.rm = T),
+              R_inter_nspp = sum(!is.na(N.Countries) & !is.na(N_authors))) %>%
     
     mutate(N_evidencesI_se = N_evidencesI_sd / sqrt(N_evidencesI_nspp),
            N_evidencesII_se = N_evidencesII_sd / sqrt(N_evidencesII_nspp),
@@ -665,73 +679,13 @@ create_data <- function(data) {
            N_specimens_se = N_specimens_sd / sqrt(N_specimens_nspp),
            N_taxacomp_se = N_taxacomp_sd / sqrt(N_taxacomp_nspp),
            N_countries_se = N_countries_sd / sqrt (N_countries_nspp),
-           N_authors_se = N_authors_sd / sqrt (N_authors_nspp))
+           N_authors_se = N_authors_sd / sqrt (N_authors_nspp),
+           Morphometrics_se = Morphometrics_sd / sqrt (Morphometrics_nspp),
+           Osteology_se = Osteology_sd / sqrt (Osteology_nspp),
+           N_Genes_se = N_Genes_sd / sqrt (N_Genes_nspp),
+           R_inter_se = R_inter_sd/ sqrt(R_inter_nspp))
   return(yearly_means)
 }
-
-all_yearly_means <- create_data(new_dat) %>%
-  mutate(Order = "All mammals")
-
-rodentia_yearly_means <- new_dat %>%
-  filter(Order == "Rodentia") %>%
-  create_data() %>%
-  mutate(Order = "Rodents") 
-
-chiroptera_yearly_means <- new_dat %>%
-  filter(Order == "Chiroptera") %>%
-  create_data() %>%
-  mutate(Order = "Bats")
-
-allwithout_yearly_means <- new_dat %>%
-  filter(Order != "Chiroptera" & Order != "Rodentia") %>%
-  create_data() %>%
-  mutate(Order = "Non-rodents & non-bats")
-
-##  Check the % increase/decrease in robustness metrics between the 
-# first 5 years of the series (1990-94) and last 5-years (2018-22);
-# this may avoid the impact of outliers if using a single year.
-
-# Number of evidence (non-equal weighted version as there are more variation in the data)
-taxa <- all_yearly_means #para nao precisar repetir o codigo abaixo,
-# so mudar o obj passado para 'taxa'. 
-
-df90to94 <- apply(taxa[taxa$Year %in% 1990:1994, 'N_evidencesI_avg'], 2, mean)
-df18to22 <- apply(taxa[taxa$Year %in% 2018:2022, 'N_evidencesI_avg'], 2, mean)
-(df18to22 - df90to94) / df90to94 * 100 # from 22.3 to 26.4 (increased in 18.1%)
-
-# Number of pages
-df90to94 <- apply(taxa[taxa$Year %in% 1990:1994, 'N_Pages_avg'], 2, mean)
-df18to22 <- apply(taxa[taxa$Year %in% 2018:2022, 'N_Pages_avg'], 2, mean)
-(df18to22 - df90to94) / df90to94 * 100 # from 11.5 to 9.27 (decreased in 19.2%)
-
-# Number of specimens
-df90to94 <- apply(taxa[taxa$Year %in% 1990:1994, 'N_specimens_avg'], 2, mean)
-df18to22 <- apply(taxa[taxa$Year %in% 2018:2022, 'N_specimens_avg'], 2, mean)
-(df18to22 - df90to94) / df90to94 * 100 # from 13.1 to 22.3 (increased in 69.9%)
-
-# Number of taxa compared
-df90to94 <- apply(taxa[taxa$Year %in% 1990:1994, 'N_taxacomp_avg'], 2, mean)
-df18to22 <- apply(taxa[taxa$Year %in% 2018:2022, 'N_taxacomp_avg'], 2, mean)
-(df18to22 - df90to94) / df90to94 * 100 # from 4.13 to 6.27 (increased in 48.5%)
-
-# Number of countries involved
-df90to94 <- apply(taxa[taxa$Year %in% 1990:1994, 'N_countries_avg'], 2, mean)
-df18to22 <- apply(taxa[taxa$Year %in% 2018:2022, 'N_countries_avg'], 2, mean)
-(df18to22 - df90to94) / df90to94 * 100 # from 4.13 to 6.27 (increased in 84.8%)
-
-# Join correlations between Orders for plot
-yearly_means <- bind_rows(
-  all_yearly_means,
-  rodentia_yearly_means,
-  chiroptera_yearly_means,
-  allwithout_yearly_means
-) %>%
-  mutate(Order = factor(Order, levels = c(
-    "All mammals",
-    "Non-rodents & non-bats",
-    "Bats",
-    "Rodents"
-  ))) 
 
 # Function to create the plot
 breaks = seq(from = 1990, to = 2022, by = 4)
@@ -822,7 +776,78 @@ create_plot <- function(data, y_label, mean, se, total_tests, nrow = nrow,
   return(p)
 }
 
-# Create plots for each variable and taxonomic order
+##  Check the % increase/decrease in robustness metrics between the 
+# first 5 years of the series (1990-94) and last 5-years (2018-22);
+# this may avoid the impact of outliers if using a single year.
+new_dat <- mydata[ , c("SpeciesName", "Order", "Year","N_evidencesI", "N_evidencesII",
+                       "N.Pages", "N.Specimens", "TaxaCompared", "N.Countries", "N_authors",
+                       "Morphometrics", "Osteology", "N.Genes")]
+
+all_yearly_means <- create_data(new_dat) %>%
+  mutate(Order = "All mammals")
+
+rodentia_yearly_means <- new_dat %>%
+  filter(Order == "Rodentia") %>%
+  create_data() %>%
+  mutate(Order = "Rodents") 
+
+chiroptera_yearly_means <- new_dat %>%
+  filter(Order == "Chiroptera") %>%
+  create_data() %>%
+  mutate(Order = "Bats")
+
+allwithout_yearly_means <- new_dat %>%
+  filter(Order != "Chiroptera" & Order != "Rodentia") %>%
+  create_data() %>%
+  mutate(Order = "Non-rodents & non-bats")
+
+# Number of evidence (non-equal weighted version as there are more variation in the data)
+taxa <- all_yearly_means #para nao precisar repetir o codigo abaixo,
+
+# so mudar o obj passado para 'taxa'. 
+df90to94 <- apply(taxa[taxa$Year %in% 1990:1994, 'N_evidencesI_avg'], 2, mean)
+df18to22 <- apply(taxa[taxa$Year %in% 2018:2022, 'N_evidencesI_avg'], 2, mean)
+(df18to22 - df90to94) / df90to94 * 100 # from 22.3 to 26.4 (increased in 18.1%)
+
+# Number of pages
+df90to94 <- apply(taxa[taxa$Year %in% 1990:1994, 'N_Pages_avg'], 2, mean)
+df18to22 <- apply(taxa[taxa$Year %in% 2018:2022, 'N_Pages_avg'], 2, mean)
+(df18to22 - df90to94) / df90to94 * 100 # from 11.5 to 9.27 (decreased in 19.2%)
+
+# Number of specimens
+df90to94 <- apply(taxa[taxa$Year %in% 1990:1994, 'N_specimens_avg'], 2, mean)
+df18to22 <- apply(taxa[taxa$Year %in% 2018:2022, 'N_specimens_avg'], 2, mean)
+(df18to22 - df90to94) / df90to94 * 100 # from 13.1 to 22.3 (increased in 69.9%)
+
+# Number of taxa compared
+df90to94 <- apply(taxa[taxa$Year %in% 1990:1994, 'N_taxacomp_avg'], 2, mean)
+df18to22 <- apply(taxa[taxa$Year %in% 2018:2022, 'N_taxacomp_avg'], 2, mean)
+(df18to22 - df90to94) / df90to94 * 100 # from 4.13 to 6.27 (increased in 48.5%)
+
+# Number of countries involved
+df90to94 <- apply(taxa[taxa$Year %in% 1990:1994, 'N_countries_avg'], 2, mean)
+df18to22 <- apply(taxa[taxa$Year %in% 2018:2022, 'N_countries_avg'], 2, mean)
+(df18to22 - df90to94) / df90to94 * 100 # from 4.13 to 6.27 (increased in 84.8%)
+
+# Join correlations between Orders for plot
+yearly_means <- bind_rows(
+  all_yearly_means,
+  rodentia_yearly_means,
+  chiroptera_yearly_means,
+  allwithout_yearly_means
+) %>%
+  mutate(Order = factor(Order, levels = c(
+    "All mammals",
+    "Non-rodents & non-bats",
+    "Bats",
+    "Rodents"
+  ))) 
+
+## Main comprehensiveness taxonomy proxies ----
+#figA <- create_plot(yearly_means, "N. of evidence I", 
+#                    mean = N_evidencesI_avg,
+#                    se = N_evidencesI_se, 5,
+#                    show_titles = TRUE, show_x_labels = FALSE); figA
 figB <- create_plot(yearly_means, "N. of evidence", #  II
                     mean = N_evidencesII_avg, 
                     se = N_evidencesII_se, 5, nrow = 1,
@@ -841,46 +866,67 @@ figE <- create_plot(yearly_means, "N. of taxa compared",
                     show_titles = FALSE, show_x_labels = TRUE); figE
 figE <- figE + xlab("Year of description")
 
-#figA <- create_plot(yearly_means, "N. of evidence I", 
-#                    mean = N_evidencesI_avg,
-#                    se = N_evidencesI_se, 5,
-#                    show_titles = TRUE, show_x_labels = FALSE); figA
-# Add x-axis title
-
-# Arrange plots in a grid
-#fig <- ggpubr::ggarrange(figB, figC, figD, figE,
-#                         ncol = 1, nrow = 4, 
-#                         labels = "auto",
-#                         font.label = list(size = 12, color = "black"),
-#                         align = "hv"); fig
 fig <- cowplot::plot_grid(figB, figC, figD, figE,
                           ncol = 1, nrow = 4, labels = "auto"); fig
 # Export the figure:
 ggsave(paste0(getwd(), "/figures/Figure2.TemporalTrends.pdf"),
        plot=fig, width=12, height=10, units="in", dpi = "print", cairo_pdf)
 
-# Join figure with section
-figF <- create_plot(yearly_means, "N. of countries involved",
-                    mean = N_countries_avg, 
-                    se = N_countries_se, 5, nrow = 4,
+## Average number of countries per author across the time ----
+figF <- create_plot(yearly_means, "",
+                    mean = R_inter_avg, 
+                    se = R_inter_se, 5, nrow = 4,
                     show_titles = FALSE, show_x_labels = TRUE); figF
 
-figF <- figF + xlab("Year of description"); FigF
+figF <- figF + xlab("Year of description"); figF
 
-ggsave(paste0(getwd(), "/figures/FigureAux.Nofcountries.pdf"),
+ggsave(paste0(getwd(), "/figures/FigureAux.AvgCountriesperAuthor.pdf"),
  plot=figF, width=4, height=10, units="in", dpi = "print", cairo_pdf)
 
+## Alternative continuous proxies of taxonomy comprehensiveness ----
+figH <- create_plot(yearly_means, "Morphometrics",
+                    mean = Morphometrics_avg, 
+                    se = Morphometrics_se, 5, nrow = 1,
+                    show_titles = FALSE, show_x_labels = TRUE); figH
+
+figI <- create_plot(yearly_means, "Osteology",
+                    mean = Osteology_avg, 
+                    se = Osteology_se, 5, nrow = 1,
+                    show_titles = FALSE, show_x_labels = TRUE); figI
+
+figJ <- create_plot(yearly_means, "N. of genes",
+                    mean = N_Genes_avg, 
+                    se = N_Genes_se, 5, nrow = 1,
+                    show_titles = FALSE, show_x_labels = TRUE); figJ
+
+figJ <- figJ + xlab("Year of description"); figJ
+
+fig <- cowplot::plot_grid(figH, figI, figJ,
+                          ncol = 1, nrow = 3, labels = "auto"); fig
+
+ggsave(paste0(getwd(), "/figures/FigureAuxAlternativeProxies.pdf"),
+       plot=fig, width=12, height=9, units="in", dpi = "print", cairo_pdf)
+
 # Number of authors
-figG <- create_plot(yearly_means, "N. of authors involved",
+figG <- create_plot(yearly_means, "N. of authors",
                     mean = N_authors_avg, 
-                    se = N_authors_se, 5, nrow = 2,
+                    se = N_authors_se, 5, nrow = 4,
                     show_titles = FALSE, show_x_labels = TRUE); figG
 
-figG <- figG + xlab("Year of description"); figG
+# Number of countries
+figK <- create_plot(yearly_means, "N. of countries",
+                    mean = N_countries_avg, 
+                    se = N_countries_se, 5, nrow = 4,
+                    show_titles = FALSE, show_x_labels = TRUE); figK
+
+fig <- plot_grid(figG, figK, align = "v", labels = "auto") 
+?plot_grid
 
 ggsave(paste0(getwd(), "/figures/FigureAux.Nofauthors.pdf"),
-       plot=figG, width=8, height=6, units="in", dpi = "print", cairo_pdf)
+       plot=fig, width=8, height=10, units="in", dpi = "print", cairo_pdf)
 
+#ggsave(paste0(getwd(), "/figures/FigureAux.Nofcountries.pdf"),
+#       plot=figF, width=4, height=10, units="in", dpi = "print", cairo_pdf)
 
 # 4) Publication Robustness by Mammal Order ----
 # Get summary values for plotting
@@ -940,34 +986,41 @@ ggsave(paste0(getwd(), "/figures/Figure2.OrderRobustness.pdf"),
        plot=fig, width=14, height=18, units="in", dpi = "print", cairo_pdf)
 
 # 5) Temporal trends in robustness of publications - based on GLMs.----
+load("Dataset.Rdata")
 rm(list=setdiff(ls(),c("data"))); gc() # clean workspace
 
 # Make a backup
-mydata <- data
+mydata <- data %>%
+  mutate(countries_per_author = N.Countries/N_authors,
+         lat_abs = abs(Latitude))
 
 # Standardize continuous predictors (mean = 0, sd =1) in order to make them comparable
 mydata$year.z <- scale(mydata$Year) 
 mydata$logBodyMass.z <- scale(mydata$Log10BodyMass_g)
 mydata$logN_authors.z <- scale(mydata$N_authors) 
-mydata$logN_countries.z <- scale(mydata$N.Countries) 
+mydata$logN_countries.z <- scale(mydata$countries_per_author) # N.Countries
 mydata$logGenusRichness.z <- scale(mydata$SppRichPerGenus) 
+mydata$Latitude.z <- scale(mydata$lat_abs) # New predictor
 
 # Remove species with missing values on predictor variables
 mydata <- mydata[ complete.cases(year.z, logBodyMass.z, logN_authors.z, logN_countries.z,
-                                 logGenusRichness.z, TaxonomicReview) , ] 
-# n = 820 species with complete data on predictor variables
+                                 logGenusRichness.z, TaxonomicReview, Latitude.z) , ] 
+# n = 817 species with complete data on predictor variables
 
 # Change taxonomic review to categorical
 mydata$TaxonomicReview <- ifelse(mydata$TaxonomicReview==1, yes = 'Yes', no = 'No')
+mydata$TaxonomicReview <- relevel(factor(mydata$TaxonomicReview), ref = "No")
+levels(mydata$TaxonomicReview) # "No" taxonomic review as reference
 
 # Check multicolinearity among continuous response variables
-usdm::vif(mydata[ , year.z:logGenusRichness.z])
-#         Variables      VIF
-#             year.z 1.384506
-#      logBodyMass.z 1.112525
-#     logN_authors.z 1.916089
-#   logN_countries.z 1.710078
-# logGenusRichness.z 1.059974
+usdm::vif(mydata[ , year.z:Latitude.z])
+#        Variables      VIF
+#             year.z 1.247187
+#      logBodyMass.z 1.115372
+#     logN_authors.z 1.436371
+#   logN_countries.z 1.344735
+# logGenusRichness.z 1.079988
+#         Latitude.z 1.050574
 # Conclusion: keep all variables into the model as VIFs are low (< 2)
 
 # Check sample size per realm and order
@@ -990,7 +1043,8 @@ usdm::vif(mydata[ , year.z:logGenusRichness.z])
 # Other taxa      75
 
 # Sample size per response variable
-colSums( ! is.na(mydata[ , c("N_evidencesI", "N_evidencesII", "N.Pages", "N.Specimens", "TaxaCompared")]))
+colSums( ! is.na(mydata[ , c("N_evidencesI", "N_evidencesII", "N.Pages",
+                             "N.Specimens", "TaxaCompared")]))
 # N_evidencesI & N_evidencesII = 820 species  
 # N.Pages = 807 species
 # N.Specimens = 805 species
@@ -1066,11 +1120,10 @@ levels(as.factor(data$Order))
 #------------------------------------------------------------#
 # Model the number of evidence II
 #------------------------------------------------------------#
-
 # Set model formula
 form <- as.formula(N_evidencesII ~ 
                      year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
-                     logGenusRichness.z + TaxonomicReview)
+                     logGenusRichness.z + TaxonomicReview + Latitude.z)
 
 # Fit a GLM 
 mod.evi2.nb <- glm.nb(formula = form, data = mydata[ ! is.na(mydata$N_evidencesII) , ] ) # remove rows with NAs on the response variable
@@ -1099,7 +1152,7 @@ summary(mod.evi2.gau)
 evidences_r2 <-performance::r2(mod.evi2.gau) # R2: 0.105
 
 # Extract and store model results
-results <- bind_rows(results, extract_model_results(mod.evi2.gau, "N. evidence"))
+results <- bind_rows(results, extract_model_results(mod.evi2.gau, "N. evidence II"))
 
 # Save model output for latter checking phylogenetic correlation in model residuals
 save(mod.evi2.gau, file = 'model_outputs/mod.evi.II.Rdata')
@@ -1112,7 +1165,7 @@ save(mod.evi2.gau, file = 'model_outputs/mod.evi.II.Rdata')
 mydata$LogN.Pages <- log10(mydata$N.Pages) # transform it 'out' of the model, otherwise there will be an error when calculating R2
 form <- as.formula(LogN.Pages ~ 
                      year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
-                     logGenusRichness.z + TaxonomicReview)
+                     logGenusRichness.z + TaxonomicReview + Latitude.z)
 
 # Fit a Gaussian model as the response is continuous (remove rows with NAs on the response variable)
 mod.pages <- glm(formula = form, family = 'gaussian', data = mydata[ !is.na(mydata$N.Pages) , ])
@@ -1146,7 +1199,7 @@ save(mod.pages, file = 'model_outputs/mod.pages.Rdata')
 # Set a full model formula
 form <- as.formula(N.Specimens ~ 
                      year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
-                     logGenusRichness.z + TaxonomicReview)
+                     logGenusRichness.z + TaxonomicReview + + Latitude.z)
 
 # Fit the model 
 mod.ts <- glm.nb(formula = form, data = mydata[ !is.na(mydata$N.Specimens) , ])
@@ -1180,7 +1233,7 @@ save(mod.ts, file = 'model_outputs/mod.ts.Rdata')
 # Set a full model formula
 form <- as.formula(TaxaCompared ~ 
                      year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
-                     logGenusRichness.z + TaxonomicReview)
+                     logGenusRichness.z + TaxonomicReview + Latitude.z)
 
 # Fit the model 
 mod.tcom <- glm.nb(formula = form, data = mydata[ !is.na(mydata$TaxaCompared) , ])
@@ -1209,7 +1262,7 @@ save(mod.tcom, file = 'model_outputs/mod.tcom.Rdata')
 
 # Round numbers 
 results[,c(3:5)] <- round(results[,c(3:5)], digits = 3)
-View(results)
+
 # Save as xlsx
 dir.create('tables') # create folder to store model results
 writexl::write_xlsx(results, 'tables/model_outputs.xlsx')
@@ -1231,6 +1284,7 @@ rm(list=setdiff(ls(),c("data","mydata","extract_model_results"))); gc()
 mammals_without <- mydata %>%
   filter(Order != "Rodentia" & Order != "Chiroptera")
 results <- data.frame()
+levels(mydata$TaxonomicReview) # "No" taxonomic review as reference
 #------------------------------------------------------------#
 # Model the number of evidence I
 #------------------------------------------------------------#
@@ -1282,7 +1336,7 @@ nrow(mammals_without) # without NA's 268 spp
 # Set model formula
 form <- as.formula(N_evidencesII ~ 
                      year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
-                     logGenusRichness.z + TaxonomicReview)
+                     logGenusRichness.z + TaxonomicReview + Latitude.z)
 
 # Fit a GLM 
 mod.evi2.nb.without <- glm.nb(formula = form,
@@ -1328,7 +1382,7 @@ save(mod.evi2.gau.without, file = 'model_outputs/mod.evi.II.without.Rdata')
 mammals_without$LogN.Pages <- log10(mammals_without$N.Pages) # transform it 'out' of the model, otherwise there will be an error when calculating R2
 form <- as.formula(LogN.Pages ~ 
                      year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
-                     logGenusRichness.z + TaxonomicReview)
+                     logGenusRichness.z + TaxonomicReview + Latitude.z)
 
 # Fit a Gaussian model as the response is continuous (remove rows with NAs on the response variable)
 mod.pages.without <- glm(formula = form, family = 'gaussian', data = mammals_without[ !is.na(mammals_without$N.Pages) , ])
@@ -1362,7 +1416,7 @@ save(mod.pages.without, file = 'model_outputs/mod.pages.without.Rdata')
 # Set a full model formula
 form <- as.formula(N.Specimens ~ 
                      year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
-                     logGenusRichness.z + TaxonomicReview)
+                     logGenusRichness.z + TaxonomicReview + Latitude.z)
 
 # Fit the model 
 mod.ts.without <- glm.nb(formula = form, data = mammals_without[ !is.na(mammals_without$N.Specimens) , ])
@@ -1396,7 +1450,7 @@ save(mod.ts.without, file = 'model_outputs/mod.ts.without.Rdata')
 # Set a full model formula
 form <- as.formula(TaxaCompared ~ 
                      year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
-                     logGenusRichness.z + TaxonomicReview)
+                     logGenusRichness.z + TaxonomicReview + Latitude.z)
 
 # Fit the model 
 mod.tcom.without <- glm.nb(formula = form, data = mammals_without[ !is.na(mammals_without$TaxaCompared) , ])
@@ -1433,7 +1487,7 @@ fwrite(results, file = 'model_outputs/model_outs_without.csv')
 
 # Extract R2
 results_r2 <- tibble(
-  name = c("N. evidence", "N. pages", "N. specimens", "N. taxa compared"),
+  name = c("N. evidence", "N. pages", "N.vspecimens", "N. taxa compared"),
   value = c(evidences_r2$R2, pages_r2$R2,
             nspecimens_r2$R2_Nagelkerke, taxacompared_r2$R2_Nagelkerke),
   metric = c("R2", "R2", "R2_Nagelkerke", "R2_Nagelkerke"),
@@ -1446,42 +1500,48 @@ rm(list=setdiff(ls(),c("data","mydata", "extract_model_results"))); gc()
 
 ## Rodents ----
 # Subset data
-rodents <- data[ data$Order == 'Rodentia' , ] # n = 421
-
+rodents <- data %>%
+  filter(Order == "Rodentia") %>% # n = 421
+  mutate(countries_per_author = N.Countries/N_authors,
+         lat_abs = abs(Latitude)) 
+  
 # Check for skewed distributions and kurtosis among predictors (transform data if necessary).
 names(rodents)
 e1071::skewness(rodents$N_authors); e1071::kurtosis(rodents$N_authors) # 0.97 and 0.52
-e1071::skewness(rodents$N.Countries, na.rm = T); e1071::kurtosis(rodents$N.Countries, na.rm = T) # 1.53 and 3.78
+e1071::skewness(rodents$countries_per_author, na.rm = T); e1071::kurtosis(rodents$countries_per_author, na.rm = T) # 1.53 and 3.78
 e1071::skewness(rodents$Year); e1071::kurtosis(rodents$Year) # -0.26 and -1.07
 e1071::skewness(rodents$SppRichPerGenus, na.rm = T); e1071::kurtosis(rodents$SppRichPerGenus, na.rm = T) # 1.76 and 2.68
-# Conclusion: log10 transform no. of countries and species richness per genus [body mass is already transformed]
-rodents$N.Countries <- log10(rodents$N.Countries)
+# Conclusion: log10 transform no. of countries_per_author and species richness per genus [body mass is already transformed]
+rodents$countries_per_author <- log10(rodents$countries_per_author)
 rodents$SppRichPerGenus <- log10(rodents$SppRichPerGenus + 1)
 
 # Change taxonomic review to categorical
 rodents$TaxonomicReview <- ifelse(rodents$TaxonomicReview==1, yes = 'Yes', no = 'No')
+rodents$TaxonomicReview <- relevel(factor(rodents$TaxonomicReview), ref = "No")
+levels(rodents$TaxonomicReview) # "No" taxonomic review as reference
 
 # Standardize continuous predictors (mean = 0, sd =1) in order to make them comparable
 rodents$year.z <- scale(rodents$Year) 
 rodents$logBodyMass.z <- scale(rodents$Log10BodyMass_g)
-rodents$N_authors.z <- scale(rodents$N_authors) 
-rodents$logN_countries.z <- scale(rodents$N.Countries) 
+rodents$logN_authors.z <- scale(rodents$N_authors) 
+rodents$logN_countries.z <- scale(rodents$countries_per_author) 
 rodents$logGenusRichness.z <- scale(rodents$SppRichPerGenus) 
+rodents$Latitude.z <- scale(rodents$lat_abs) 
 
 # Remove species with missing values on predictor variables
-rodents <- rodents[ complete.cases(year.z, logBodyMass.z, N_authors.z, logN_countries.z,
-                                   logGenusRichness.z, TaxonomicReview) , ] 
-# n = 330 species with complete data on predictor variables
+rodents <- rodents[ complete.cases(year.z, logBodyMass.z, logN_authors.z, logN_countries.z,
+                                   logGenusRichness.z, TaxonomicReview, lat_abs) , ] 
+# n = 329 species with complete data on predictor variables
 
 # Check multicolinearity among predictor variables
-usdm::vif(rodents[ , year.z:logGenusRichness.z])
-#          Variables      VIF
-#             year.z 1.364027
-#      logBodyMass.z 1.014609
-#        N_authors.z 1.545971
-#   logN_countries.z 1.372408
-# logGenusRichness.z 1.020982
-# Low multicolinearity (VIFs < 2)
+usdm::vif(rodents[ , year.z:Latitude.z])
+#       Variables      VIF
+#             year.z 1.379964
+#      logBodyMass.z 1.013938
+#        N_authors.z 1.524512
+#   logN_countries.z 1.377775
+# logGenusRichness.z 1.030636
+#         Latitude.z 1.070418
 
 # Sample size per response variable
 colSums( ! is.na(rodents[ , c("N_evidencesI", "N_evidencesII", "N.Pages", "N.Specimens", "TaxaCompared")]))
@@ -1540,8 +1600,8 @@ results <- data.frame()
 
 # Set model formula
 form <- as.formula(N_evidencesII ~ 
-                     year.z + N_authors.z + logN_countries.z + logBodyMass.z + 
-                     logGenusRichness.z + TaxonomicReview)
+                     year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
+                     logGenusRichness.z + TaxonomicReview + Latitude.z)
 
 # Fit a GLM 
 mod.evi2.nb <- glm.nb(formula = form, data = rodents[ ! is.na(rodents$N_evidencesII) , ] ) 
@@ -1560,7 +1620,7 @@ summary(mod.evi2.gau)
 #                       Estimate Std. Error t value Pr(>|t|)    
 # (Intercept)         5.35771    0.06073  88.228  < 2e-16 ***
 # year.z              0.13011    0.06260   2.078  0.03846 *  
-# N_authors.z        -0.00801    0.07076  -0.113  0.90995    
+# logN_authors.z        -0.00801    0.07076  -0.113  0.90995    
 # logN_countries.z    0.03301    0.06364   0.519  0.60432    
 # logBodyMass.z      -0.03911    0.05398  -0.724  0.46932    
 # logGenusRichness.z -0.02408    0.05420  -0.444  0.65705    
@@ -1582,8 +1642,8 @@ save(mod.evi2.gau, file = 'model_outputs/mod.evi.II.rodents.Rdata')
 # Set a full model formula
 rodents$LogN.Pages <- log10(rodents$N.Pages) # transform it 'out' of the model, otherwise there will be an error when calculating R2
 form <- as.formula(LogN.Pages ~ 
-                     year.z + N_authors.z + logN_countries.z + logBodyMass.z + 
-                     logGenusRichness.z + TaxonomicReview)
+                     year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
+                     logGenusRichness.z + TaxonomicReview + Latitude.z)
 
 # Fit a Gaussian model as the response is continuous (remove rows with NAs on the response variable)
 mod.pages <- glm(formula = form, family = 'gaussian', data = rodents[ !is.na(rodents$N.Pages) , ])
@@ -1595,7 +1655,7 @@ summary(mod.pages)
 #                 Estimate Std. Error t value Pr(>|t|)    
 # (Intercept)         0.9163981  0.0198647  46.132  < 2e-16 ***
 # year.z             -0.0096724  0.0205112  -0.472    0.638    
-# N_authors.z         0.0122686  0.0230885   0.531    0.596    
+# logN_authors.z         0.0122686  0.0230885   0.531    0.596    
 # logN_countries.z    0.0316764  0.0207096   1.530    0.127    
 # logBodyMass.z      -0.0056922  0.0176284  -0.323    0.747    
 # logGenusRichness.z -0.0779224  0.0176596  -4.412  1.4e-05 ***
@@ -1616,8 +1676,8 @@ save(mod.pages, file = 'model_outputs/mod.pages.rodents.Rdata')
 
 # Set a full model formula
 form <- as.formula(N.Specimens ~ 
-                     year.z + N_authors.z + logN_countries.z + logBodyMass.z + 
-                     logGenusRichness.z + TaxonomicReview)
+                     year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
+                     logGenusRichness.z + TaxonomicReview + Latitude.z)
 
 # Fit the model 
 mod.ts <- glm.nb(formula = form, data = rodents[ !is.na(rodents$N.Specimens) , ])
@@ -1629,7 +1689,7 @@ summary(mod.ts)
 #               Estimate Std. Error z value Pr(>|z|)    
 # (Intercept)         2.91854    0.07020  41.576  < 2e-16 ***
 # year.z              0.20001    0.07204   2.776   0.0055 ** 
-# N_authors.z        -0.08404    0.08209  -1.024   0.3059    
+# logN_authors.z        -0.08404    0.08209  -1.024   0.3059    
 # logN_countries.z    0.02310    0.07345   0.314   0.7532    
 # logBodyMass.z      -0.05405    0.06222  -0.869   0.3850    
 # logGenusRichness.z  0.24800    0.06310   3.930 8.49e-05 ***
@@ -1650,8 +1710,8 @@ save(mod.ts, file = 'model_outputs/mod.ts.rodents.Rdata')
 
 # Set a full model formula
 form <- as.formula(TaxaCompared ~ 
-                     year.z + N_authors.z + logN_countries.z + logBodyMass.z + 
-                     logGenusRichness.z + TaxonomicReview)
+                     year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
+                     logGenusRichness.z + TaxonomicReview + Latitude.z)
 
 # Fit the model 
 mod.tcom <- glm.nb(formula = form, data = rodents[ !is.na(rodents$TaxaCompared) , ])
@@ -1663,7 +1723,7 @@ summary(mod.tcom)
 #               Estimate Std. Error z value Pr(>|z|)    
 # (Intercept)         1.58253    0.05404  29.283  < 2e-16 ***
 # year.z              0.02992    0.05521   0.542    0.588    
-# N_authors.z        -0.05179    0.06268  -0.826    0.409    
+# logN_authors.z        -0.05179    0.06268  -0.826    0.409    
 # logN_countries.z    0.07092    0.05616   1.263    0.207    
 # logBodyMass.z       0.02218    0.04760   0.466    0.641    
 # logGenusRichness.z  0.20832    0.04893   4.258 2.07e-05 ***
@@ -1699,41 +1759,48 @@ rm(list=setdiff(ls(),c("data", "extract_model_results"))); gc()
 
 ## Bats ----
 # Subset data
-bats <- data[ data$Order == 'Chiroptera' , ] # n = 280
+bats <- data %>%
+  filter(Order == "Chiroptera") %>% # 280 
+  mutate(countries_per_author = N.Countries/N_authors,
+         lat_abs = abs(Latitude))  
 
 # Check for skewed distributions and kurtosis among predictors (transform data if necessary).
 names(bats)
 e1071::skewness(bats$N_authors); e1071::kurtosis(bats$N_authors) # 1.60 and 3.04
-e1071::skewness(bats$N.Countries, na.rm = T); e1071::kurtosis(bats$N.Countries, na.rm = T) # 1.51 and 2.79
+e1071::skewness(bats$countries_per_author, na.rm = T); e1071::kurtosis(bats$countries_per_author, na.rm = T) # 1.83 and 6.98
 e1071::skewness(bats$Year); e1071::kurtosis(bats$Year) # -0.55 and -0.42
 e1071::skewness(bats$SppRichPerGenus, na.rm = T); e1071::kurtosis(bats$SppRichPerGenus, na.rm = T) # 1.36 and 0.42
 # Conclusion: log10 transform no. of authors and no. of countries [body mass is already transformed]
 bats$N_authors <- log10(bats$N_authors)
-bats$N.Countries <- log10(bats$N.Countries)
+bats$N.Countries <- log10(bats$countries_per_author)
 
 # Change taxonomic review to categorical
 bats$TaxonomicReview <- ifelse(bats$TaxonomicReview==1, yes = 'Yes', no = 'No')
+bats$TaxonomicReview <- relevel(factor(bats$TaxonomicReview), ref = "No")
+levels(bats$TaxonomicReview) # "No" taxonomic review as reference
 
 # Standardize continuous predictors (mean = 0, sd =1) in order to make them comparable
 bats$year.z <- scale(bats$Year) 
 bats$logBodyMass.z <- scale(bats$Log10BodyMass_g)
 bats$logN_authors.z <- scale(bats$N_authors) 
-bats$logN_countries.z <- scale(bats$N.Countries) 
-bats$GenusRichness.z <- scale(bats$SppRichPerGenus) 
+bats$logN_countries.z <- scale(bats$countries_per_author) 
+bats$logGenusRichness.z <- scale(bats$SppRichPerGenus) 
+bats$Latitude.z <- scale(bats$lat_abs) 
 
 # Remove species with missing values on predictor variables
 bats <- bats[ complete.cases(year.z, logBodyMass.z, logN_authors.z, logN_countries.z,
-                             GenusRichness.z, TaxonomicReview) , ] 
-# n = 222 species with complete data on predictor variables
+                             logGenusRichness.z, TaxonomicReview, Latitude.z) , ] 
+# n = 221 species with complete data on predictor variables
 
 # Check multicolinearity among predictor variables
-usdm::vif(bats[ , year.z:GenusRichness.z])
-#          Variables      VIF
-#             year.z 1.420017
-#      logBodyMass.z 1.060475
-#     logN_authors.z 2.321813
-#   logN_countries.z 1.980449
-#    GenusRichness.z 1.045915
+usdm::vif(bats[ , year.z:Latitude.z])
+#        Variables      VIF
+#            year.z 1.425805
+#     logBodyMass.z 1.057114
+#    logN_authors.z 1.890489
+#  logN_countries.z 1.354933
+#   GenusRichness.z 1.050549
+#        Latitude.z 1.056711
 # Low multicolinearity (VIFs < 3)
 
 # Sample size per response variable
@@ -1794,7 +1861,7 @@ results <- data.frame()
 # Set model formula
 form <- as.formula(N_evidencesII ~ 
                      year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
-                     GenusRichness.z + TaxonomicReview)
+                     logGenusRichness.z + TaxonomicReview + Latitude.z)
 
 # Fit a GLM 
 mod.evi2.nb <- glm.nb(formula = form, data = bats[ ! is.na(bats$N_evidencesII) , ] ) 
@@ -1836,7 +1903,7 @@ save(mod.evi2.gau, file = 'model_outputs/mod.evi.II.bats.Rdata')
 bats$LogN.Pages <- log10(bats$N.Pages) # transform it 'out' of the model, otherwise there will be an error when calculating R2
 form <- as.formula(LogN.Pages ~ 
                      year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
-                     GenusRichness.z + TaxonomicReview)
+                     logGenusRichness.z + TaxonomicReview + Latitude.z)
 
 # Fit a Gaussian model as the response is continuous (remove rows with NAs on the response variable)
 mod.pages <- glm(formula = form, family = 'gaussian', data = bats[ !is.na(bats$N.Pages) , ])
@@ -1870,7 +1937,7 @@ save(mod.pages, file = 'model_outputs/mod.pages.bats.Rdata')
 # Set a full model formula
 form <- as.formula(N.Specimens ~ 
                      year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
-                     GenusRichness.z + TaxonomicReview)
+                     logGenusRichness.z + TaxonomicReview + Latitude.z)
 
 # Fit the model 
 mod.ts <- glm.nb(formula = form, data = bats[ !is.na(bats$N.Specimens) , ])
@@ -1904,7 +1971,7 @@ save(mod.ts, file = 'model_outputs/mod.ts.bats.Rdata')
 # Set a full model formula
 form <- as.formula(TaxaCompared ~ 
                      year.z + logN_authors.z + logN_countries.z + logBodyMass.z + 
-                     GenusRichness.z + TaxonomicReview)
+                     logGenusRichness.z + TaxonomicReview + Latitude.z)
 
 # Fit the model 
 mod.tcom <- glm.nb(formula = form, data = bats[ !is.na(bats$TaxaCompared) , ])
@@ -1952,7 +2019,7 @@ rm(list = ls()); gc()
 
 # 6) Create a plot with model coefficients and CI intervals.----
 # Load
-rm(list = ls()); gc()
+#rm(list = ls()); gc()
 results_all <- fread('model_outputs/model_outs.csv')
 results_without <- fread('model_outputs/model_outs_without.csv')
 results_rodents <- fread('model_outputs/model_outs_rodents.csv')
@@ -1978,56 +2045,27 @@ results <- rbind(results_all, results_without,
                                     "Non-bats & non-rodents",
                                     "Bats",
                                     "Rodents")))
-
+#View(results)
 # Reorder predictors and fix names
 levels(as.factor(results$term))
-results <- results[ ! results$term=="(Intercept)", ] # remove intercept
+results <- results %>%
+  filter(term != "(Intercept)") %>%
+  mutate(response = str_replace(response, "N. evidence II", "N. evidence")) 
+
 results$term <- factor(results$term, 
-                       levels = c("GenusRichness.z","logBodyMass.z","logGenusRichness.z", "logN_authors.z",  
-                                  "logN_countries.z","N_authors.z","TaxonomicReviewYes", "year.z"),
-                       labels = c("Number of\nspecies/genus", "Body mass", "Number of\nspecies/genus", "Number of\nauthors", 
-                                  "Number of\ncountries", "Number of\nauthors", "Taxonomic\nreview", "Year of\ndescription"))
+                       levels = c("logBodyMass.z", "logN_authors.z", "year.z", 
+                                  "Latitude.z",
+                                  "TaxonomicReview1","logN_countries.z",
+                                  "logGenusRichness.z"),
+                       labels = c("Body mass" ,"Number of\nauthors", "Year of\ndescription", 
+                                  "Absolute\nLatitude",
+                                  "Taxonomic\nreview","Avg. Number of\ncountries/author", 
+                                  "Number of\nspecies/genus"))
 
 levels(as.factor(results$response))
 
-# Make the plot
-#p <- ggplot(results, aes(x = response, y = estimate, shape = response, ymin = lower95, ymax = upper95))+
-#  # Add rectangular boxes in the background (to improve contrast):
-#  geom_rect(xmin=0, xmax=11, ymin=-Inf, ymax=+Inf, fill="grey95", color="transparent") + # Socioeconomic
-#  geom_pointrange(aes(col = response), size = 0.3)+ # shape = Class
-#  scale_shape_manual(values=c(0,1,2,4,5))+
-#  scale_color_brewer(type = 'qual', palette = 'Set2')+
-#  geom_errorbar(aes(ymin=lower95, ymax=upper95, col = response), width=0.1)+
-#  geom_hline(yintercept = 0, linetype = 2)+
-#  labs(x=NULL, y="Model Coefficients (CI 95%)")+
-#  scale_x_discrete(limits = rev(levels(as.factor(results$response))))+
-#  facet_grid(term ~ group, scales = 'free_x', switch = "y") +  # Use facet_grid and switch strip position to the left
-#  theme(panel.grid.minor = element_blank(),
-#        panel.grid.major = element_blank(),
-#        panel.background = element_blank(),
-#        axis.title = element_text(size=12, face="bold"),
-#        axis.text = element_text(size=10),
-#        axis.line = element_line(colour="black"),
-#        axis.ticks.y.left = element_blank(),
-#        axis.text.x=element_text(),
-#        axis.text.y = element_blank(),
-#        plot.background=element_rect(fill = "white"),
-#        strip.background = element_blank(),
-#        strip.placement = "outside",
-#        strip.text.y.left = element_text(angle = 0, hjust = 1, vjust = 0.5, size = 10),
-#        legend.background = element_rect(colour = 'black', fill = 'white'),
-#        legend.key = element_blank(),
-#        legend.title = element_blank(),
-#        legend.position = "top")+
-#  coord_flip(); p
-
-# save figure as pdf
-#ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs.png"), plot=p, width=10, height=6, units="in", dpi = 'print')
-#ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs.jpg"), plot=p, width=10, height=6, units="in", dpi = 'print')
-#ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs.pdf"), plot=p, width=10, height=6, units="in", dpi = 'print', cairo_pdf)
-
 MyColors <- c("#8e0152", "#bf812d", "#4d4d4d", "#d6604d")
-names(MyColors) <- c("N. evidence II","N. pages","N. specimens","N. taxa compared")
+names(MyColors) <- c("N. evidence","N. pages","N. specimens","N. taxa compared")
 
 # Define background data to apply unique colors to each 'group' column
 background_data <- data.frame(
@@ -2047,7 +2085,8 @@ p <- ggplot(results, aes(x = response, y = estimate, shape = response, ymin = lo
   geom_hline(yintercept = 0, linetype = 2) +
   labs(x = NULL, y = "Model Coefficients (CI 95%)") +
   scale_x_discrete(limits = rev(levels(as.factor(results$response)))) +
-  facet_grid(term ~ group, scales = 'free_x', switch = "y") +
+  scale_y_continuous(breaks = seq(-1, 1, by = 0.2)) +
+  facet_grid(term ~ group, scales = 'fixed', switch = "y") +
   theme(
     panel.grid.minor = element_blank(),
     panel.grid.major = element_blank(),
@@ -2070,7 +2109,7 @@ p <- ggplot(results, aes(x = response, y = estimate, shape = response, ymin = lo
   scale_fill_identity(); p  # Use fill colors directly without a scale
 
 ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs2.png"), plot=p, width=10, height=6, units="in", dpi = 'print')
-ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs2.jpg"), plot=p, width=10, height=6, units="in", dpi = 'print')
+#ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs2.jpg"), plot=p, width=10, height=6, units="in", dpi = 'print')
 ggsave(paste0(getwd(), "/figures/Figure.ModelOutputs2.pdf"), plot=p, width=10, height=6, units="in", dpi = 'print', cairo_pdf)
 
 # Inset plot with R2
@@ -2091,15 +2130,18 @@ results_r2 <- rbind(r2_all, r2_without, r2_rodents, r2_bats) %>%
       "N. evidence"
     )))
 
+MyColors <- c("#8e0152", "#bf812d", "#4d4d4d", "#d6604d")
+names(MyColors) <- c("N. evidence","N. pages","N. specimens","N. taxa compared")
+# Crie um dataframe para os pontos do eixo Y
+
 # Plot
 inset_plot <- ggplot(results_r2, aes(x = name, y = value, fill = group)) +
-  # Barras
+  # barras
   geom_col(position = position_dodge(width = 0.9), width = 0.7, alpha = 0.3,
            color = "black", size = 0.2) +
-  
   # Ajuste de escala para o eixo X após o coord_flip
   scale_x_discrete(expand = c(0, 0)) +  # Evita o espaçamento extra
-  scale_y_continuous(breaks = seq(0, 0.3, by = 0.1), limits = c(0, 0.3), expand = c(0, 0)) +  # Definindo limite superior no eixo Y (horizontal)
+  scale_y_continuous(breaks = seq(0, 0.4, by = 0.1), limits = c(0, 0.5), expand = c(0, 0)) +  # Definindo limite superior no eixo Y (horizontal)
   scale_fill_manual(values = background_colors, guide = "none") +
   
   # Layout
@@ -2112,11 +2154,12 @@ inset_plot <- ggplot(results_r2, aes(x = name, y = value, fill = group)) +
     strip.background = element_blank(),
     strip.text = element_blank(),
     panel.grid = element_blank(),
-    axis.text.x = element_text(angle = 0, hjust = 1, size = 13),
+    axis.text.x = element_text(angle = 0, hjust = 1, size = 15),
     axis.text.y = element_text(size = 13, color = "black"),
     axis.text = element_text(color = "black"),
     axis.title = element_text(color = "black"),
     axis.title.y = element_text(size = 13),
+    axis.title.x = element_text(size = 15),
     axis.line.x = element_line(color = "black", size = 0.5),  # Linha do eixo X após coord_flip
     axis.ticks.x = element_line(color = "black", size = 0.5),  
     axis.line.y = element_line(color = "black", size = 0.5),  # Linha do eixo Y (horizontal após coord_flip)
@@ -2125,7 +2168,7 @@ inset_plot <- ggplot(results_r2, aes(x = name, y = value, fill = group)) +
   ); inset_plot
 
 ggsave(paste0(getwd(), "/figures/Figure.aux2.pdf"), plot=inset_plot,
-       width=4, height=6, units="in", dpi = 'print', cairo_pdf)
+       width=5, height=6, units="in", dpi = 'print', cairo_pdf)
 
 # 7) Check phylogenetic correlation in model residuals.----
 # Load additional packages
@@ -3746,7 +3789,7 @@ all_mammals <- mydata %>%
         legend.key.size = unit(0.5, "lines"),             # Reduce the size of the legend keys
         legend.spacing = unit(0.5, "lines"),              # Reduce the spacing between legend items
         legend.margin = margin(t = 0.5, r = 0.5, b = 0.5, l = 0.5, unit = "lines"),  # Reduce margin around the legend
-        legend.position = 'bottom'); all_mammals
+        legend.position = 'none'); all_mammals
 
 without_molecular <- mydata %>%
   filter(Order != "Chiroptera" & Order != "Rodentia") %>%
@@ -3814,8 +3857,8 @@ rodents_molecular <- mydata %>%
 fig <- cowplot::plot_grid(all_mammals, without_molecular, bats_molecular, rodents_molecular,
                           ncol = 2, nrow = 2, align = "v", labels = "auto"); fig
 
-ggsave(paste0(getwd(), "/figures/FigureS3.MolecularMethods.pdf"), 
-       plot=fig, width=9, height=6, units="in", dpi = "print", cairo_pdf())
+ggsave(paste0(getwd(), "/figures/aux.pdf"), 
+       plot=all_mammals, width=9, height=6, units="in", dpi = "print", cairo_pdf())
 
 # Obtain proportion
 df_prop <- mydata %>%
@@ -4085,6 +4128,12 @@ mydata <- mydata %>%
          )) %>% 
   mutate(TaxonomicReview = replace_na(TaxonomicReview, 0))
 
+# Pearson correlation between number of countries and number of authors
+mydata_cor <- mydata %>% 
+  filter(!is.na(N_authors) & !is.na(N.Countries))
+cor.test(mydata_cor$N_authors, mydata_cor$N.Countries, method = "spearman")
+
+# Exloring between taxonomic pratices 
 mydata <- mydata %>%
   mutate(TypeOfStudy = paste(TaxonomicReview, Molecular, sep = "_")) %>%
   mutate(TypeOfStudy = case_when(
@@ -4095,119 +4144,388 @@ mydata <- mydata %>%
     TRUE ~ TypeOfStudy  # mantém o valor original caso não se enquadre em nenhum caso
   )) 
 
-# Definir os pares para comparação (cada grupo comparado entre si)
-comparisons <- list(
-  c("Taxonomic \nReview \n+ Molecular", "Molecular"),
-  c("Taxonomic \nReview \n+ Molecular", "Taxonomic \nReview"),
-  c("Taxonomic \nReview \n+ Molecular", "Other \nevidences"),
-  c("Molecular", "Taxonomic \nReview"),
-  c("Molecular", "Other \nevidences"),
-  c("Taxonomic \nReview", "Other \nevidences")
-)
+# Duplicando o que é taxonomic review + molecular para cada grupo
+mydata_expanded <- mydata %>%
+  # Manter os grupos que não precisam ser divididos
+  filter(TypeOfStudy != "Taxonomic \nReview \n+ Molecular") %>%
+  # Adicionar os registros "Taxonomic Review + Molecular" como "Molecular"
+  bind_rows(
+    mydata %>%
+      filter(TypeOfStudy == "Taxonomic \nReview \n+ Molecular") %>%
+      mutate(TypeOfStudy = "Molecular")
+  ) %>%
+  # Adicionar os registros "Taxonomic Review + Molecular" como "Taxonomic Review"
+  bind_rows(
+    mydata %>%
+      filter(TypeOfStudy == "Taxonomic \nReview \n+ Molecular") %>%
+      mutate(TypeOfStudy = "Taxonomic \nReview")
+  ) %>%
+  mutate(razao_int = N.Countries/N_authors) # variavel nova
 
-table(mydata$TypeOfStudy)
 
-# Pearson correlation between number of countries and number of authors
-mydata_cor <- mydata %>% 
-  filter(!is.na(N_authors) & !is.na(N.Countries))
-cor.test(mydata_cor$N_authors, mydata_cor$N.Countries, method = "pearson")
+## Test difference between between taxonomy practices type ----
+# Teste Kruskal-Wallis
+res.aov <- mydata_expanded %>%
+  rstatix::kruskal_test(razao_int ~ TypeOfStudy) %>%
+  mutate(p = ifelse(p < 0.001, "< 0.001", as.character(p)))
 
-# ANCOVA and post hoc test
-# All mammals
-res.aov <- mydata %>%
-  anova_test(N.Countries ~ N_authors + TypeOfStudy)
-get_anova_table(res.aov)
-
-pwc <- mydata %>% 
-  rstatix::emmeans_test(
-    N.Countries ~ TypeOfStudy, covariate = N_authors,
-    p.adjust.method = "bonferroni"
-  )
-pwc %>% View()
-
-plot_ancova_mammals <- mydata %>%
-  ggplot(aes(x = log10(N_authors), y = log10(N.Countries), color=TypeOfStudy)) +
-  geom_point(alpha = 0.7) +
-  geom_smooth(method = "lm", se = FALSE) +
-  theme_minimal() +
-  theme(legend.position = "none") +
-  xlab("")
+# Post-hoc para identificar grupos diferentes
+posthoc_test <- mydata_expanded %>%
+  rstatix::dunn_test(razao_int ~ TypeOfStudy, p.adjust.method = "bonferroni",
+                     detailed = TRUE)
+posthoc_test[,c("group1", "group2","estimate", "p.adj", "p.adj.signif")]
 
 # Without bats & rodents
-res.aov.without <- mydata %>%
+res.aov.without <- mydata_expanded %>%
   filter(Order != "Chiroptera" & Order != "Rodentia") %>%
-  anova_test(N.Countries ~ N_authors + TypeOfStudy)
-get_anova_table(res.aov.without)
+  rstatix::kruskal_test(razao_int ~ TypeOfStudy) %>%
+  mutate(p = ifelse(p < 0.001, "< 0.001", as.character(p)))
+res.aov.without
 
-pwc_without <- mydata %>% 
+posthoc_without <- mydata_expanded %>%
   filter(Order != "Chiroptera" & Order != "Rodentia") %>%
-  rstatix::emmeans_test(
-    N.Countries ~ TypeOfStudy, covariate = N_authors,
-    p.adjust.method = "bonferroni"
-  )
-pwc_without %>% View()
-
-plot_ancova_without <- mydata %>%
-  filter(Order != "Chiroptera" & Order != "Rodentia") %>%
-  ggplot(aes(x = log10(N_authors), y = log10(N.Countries), color=TypeOfStudy)) +
-  geom_point(alpha = 0.7) +
-  geom_smooth(method = "lm", se = FALSE) +
-  theme_minimal() +
-  theme(legend.position = "none") +
-  ylab("") + xlab("")
+  rstatix::dunn_test(razao_int ~ TypeOfStudy, p.adjust.method = "bonferroni",
+                     detailed = TRUE)
+posthoc_without[,c("group1", "group2","estimate", "p.adj", "p.adj.signif")]
 
 # Bats
-res.aov.bats <- mydata %>%
+res.aov.bats <- mydata_expanded %>%
   filter(Order == "Chiroptera") %>%
-  anova_test(N.Countries ~ N_authors + TypeOfStudy)
-get_anova_table(res.aov.bats)
+  rstatix::kruskal_test(razao_int ~ TypeOfStudy) #%>%
+  #mutate(p = ifelse(p < 0.001, "< 0.001", as.character(p)))
 
-pwc_bats <- mydata %>% 
-  filter(Order == "Chiroptera") %>%
-  rstatix::emmeans_test(
-    N.Countries ~ TypeOfStudy, covariate = N_authors,
-    p.adjust.method = "bonferroni"
-  )
-pwc_bats %>% View()
+res.aov.bats
 
-plot_ancova_bats <- mydata %>%
+pwc_bats <- mydata_expanded %>% 
   filter(Order == "Chiroptera") %>%
-  ggplot(aes(x = log10(N_authors), y = log10(N.Countries), color=TypeOfStudy)) +
-  geom_point(alpha = 0.7) +
-  geom_smooth(method = "lm", se = FALSE) +
-  theme_minimal() +
-  theme(legend.position = "none")
+  rstatix::dunn_test(razao_int ~ TypeOfStudy, 
+                     p.adjust.method = "bonferroni",
+                     detailed = TRUE)
+pwc_bats[,c("group1", "group2","estimate", "p.adj", "p.adj.signif")]
 
 # Rodents
-res.aov.rodents <- mydata %>%
+res.aov.rodents <- mydata_expanded %>%
   filter(Order == "Rodentia") %>%
-  anova_test(N.Countries ~ N_authors + TypeOfStudy)
-get_anova_table(res.aov.rodents)
+  rstatix::kruskal_test(razao_int ~ TypeOfStudy) %>%
+  mutate(p = ifelse(p < 0.001, "< 0.001", as.character(p)))
 
-pwc_rodentia <- mydata %>% 
-  filter(Order == "Rodentia") %>%
-  rstatix::emmeans_test(
-    N.Countries ~ TypeOfStudy, covariate = N_authors,
-    p.adjust.method = "bonferroni"
-  )
-pwc_rodentia %>% View()
+res.aov.rodents
 
-plot_ancova_rodents <- mydata %>%
+pwc_rodentia <- mydata_expanded %>% 
   filter(Order == "Rodentia") %>%
-  ggplot(aes(x = log10(N_authors), y = log10(N.Countries), color=TypeOfStudy)) +
+  rstatix::dunn_test(razao_int ~ TypeOfStudy, 
+                     p.adjust.method = "bonferroni",
+                     detailed = TRUE) 
+pwc_rodentia[,c("group1", "group2","estimate", "p.adj", "p.adj.signif")]
+
+## Violinplot plots ----
+plot <- mydata_expanded %>%
+  mutate(TypeOfStudy = factor(TypeOfStudy,
+                              levels = c("Molecular",
+                                         "Taxonomic \nReview",
+                                         "Other \nevidences"))) %>%
+  ggplot(aes(x = TypeOfStudy, y = razao_int)) +
+  geom_violin(width = 0.8, fill = "black", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
+  geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
+  
+  labs(
+    title = "",
+    x = "",
+    y = ""
+  ) +
+  scale_y_continuous(limits = c(0,4), breaks = c(0,1,2,3,4), expand = expansion(add = c(0, .5))) +
+  theme_minimal() +
+  theme(
+    axis.title.y = element_text(size = 18, face = "bold"), 
+    legend.position = "none",
+    #plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 12, color = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_line(color = "black")
+  ) +
+  geom_text(aes(x = 1, y = 3.2, label = "a"), size = 4, family = "Arial", fontface = "plain") +  # "A" Molecular
+  geom_text(aes(x = 2, y = 3.2, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "B" Taxonomic Review 
+  geom_text(aes(x = 3, y = 2.8, label = "c"), size = 4, family = "Arial", fontface = "plain") +   # "C" Other evidences
+  geom_text(
+    data = res.aov,
+    aes(
+      x = 0.5, 
+      y = 4, 
+      label = paste(
+        "χ2 =",  round(statistic,2),
+        "; df =", df, 
+        "; Bonferroni p =", p)
+    ),
+    hjust = 0, vjust = 1.5, size = 4, color = "black", inherit.aes = FALSE
+  ); plot
+
+# 
+plot_mammals_without <- mydata_expanded %>%
+  filter(Order != "Chiroptera" & Order != "Rodentia") %>%
+  mutate(TypeOfStudy = factor(TypeOfStudy,
+                              levels = c("Molecular",
+                                         "Taxonomic \nReview",
+                                         "Other \nevidences"))) %>%
+  ggplot(aes(x = TypeOfStudy, y = razao_int)) +
+  geom_violin(width = 0.8, fill = "#ff3352", alpha = 0.5, adjust = 1.5,scale = "width") +  # "adjust" suaviza o violino
+  geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
+  
+  labs(
+    title = "",
+    x = "",
+    y = ""
+  ) +
+  scale_y_continuous(limits = c(0, 4), breaks = c(0, 1, 2, 3, 4), expand = expansion(add = c(0, .5))) +
+  theme_minimal() +
+  theme(
+    plot.margin=unit(c(t = 0, r = 0, b = 0, l = 0), "cm"),
+    #plot.margin = margin(5, 5, 5, 5, unit = "pt"),
+    legend.position = "none",
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 12, color = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_line(color = "black")
+  ) +
+  geom_text(aes(x = 1, y = 2.2, label = "a"), size = 4, family = "Arial", fontface = "plain") +  # "A" Molecular
+  geom_text(aes(x = 2, y = 2.2, label = "a"), size = 4, family = "Arial", fontface = "plain") +   # "B" Taxonomic Review 
+  geom_text(aes(x = 3, y = 2.8, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "C" Other evidences
+  geom_text(
+    data = res.aov.without,
+    aes(
+      x = 0.5, 
+      y = 4, 
+      label = paste(
+        "χ2 =",  round(statistic,2),
+        "; df =", df, 
+        "; Bonferroni p =", p)
+    ),
+    hjust = 0, vjust = 1.5, size = 4, color = "black", inherit.aes = FALSE
+  ) ; plot_mammals_without
+
+plot_bat <- mydata_expanded %>%
+  filter(Order == "Chiroptera") %>%
+  mutate(TypeOfStudy = factor(TypeOfStudy,
+                              levels = c("Molecular",
+                                         "Taxonomic \nReview",
+                                         "Other \nevidences"))) %>%
+  ggplot(aes(x = TypeOfStudy, y = razao_int)) +
+  geom_violin(width = 0.8, fill = "#7fc97f", alpha = 0.5, adjust = 1.5, scale = "width") +  # "adjust" suaviza o violino
+  geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
+  
+  labs(
+    title = "",
+    x = "",
+    y = ""
+  ) +
+  scale_y_continuous(limits = c(0, 4), breaks = c(0,1,2,3,4), expand = expansion(add = c(0, .5))) +
+  theme_minimal() +
+  theme(
+    plot.margin=unit(c(t = 0, r = 0, b = 0, l = 0), "cm"),
+    #plot.margin = margin(5, 5, 5, 5, unit = "pt"),
+    legend.position = "none",
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 12, color = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_line(color = "black")
+  ) +
+  geom_text(aes(x = 1, y = 3.2, label = "a"), size = 4, family = "Arial", fontface = "plain") +  # "A" Molecular
+  geom_text(aes(x = 2, y = 3.2, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "B" Taxonomic Review 
+  geom_text(aes(x = 3, y = 2.2, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "C" Other evidences
+  geom_text(
+    data = res.aov.bats,
+    aes(
+      x = 0.5, 
+      y = 4, 
+      label = paste(
+        "χ2 =",  round(statistic,2),
+        "; df =", df, 
+        "; Bonferroni p =", round(p, 3))
+    ),
+    hjust = 0, vjust = 1.5, size = 4, color = "black", inherit.aes = FALSE
+  ) ; plot_bat
+
+plot_rodentia <- mydata_expanded %>%
+  filter(Order == "Rodentia") %>%
+  mutate(TypeOfStudy = factor(TypeOfStudy,
+                              levels = c("Molecular",
+                                         "Taxonomic \nReview",
+                                         "Other \nevidences"))) %>%
+  ggplot(aes(x = TypeOfStudy, y = razao_int)) +
+  geom_violin(width = 0.8, fill = "#386cb0", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
+  geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
+
+  labs(
+    title = "",
+    x = "",
+    y = ""
+  ) +
+  scale_y_continuous(limits = c(0, 4), breaks = c(0, 1, 2, 3, 4), expand = expansion(add = c(0, .5))) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    plot.margin=unit(c(t = 0, r = 0, b = 0, l = 0), "cm"),
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 12, color = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_line(color = "black")
+  ) +
+  geom_text(aes(x = 1, y = 2.2, label = "a"), size = 4, family = "Arial", fontface = "plain") +  # "A" Molecular
+  geom_text(aes(x = 2, y = 2.5, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "B" Taxonomic Review 
+  geom_text(aes(x = 3, y = 2.2, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "C" Other evidences
+  geom_text(
+    data = res.aov.rodents,
+    aes(
+      x = 0.5, 
+      y = 4, 
+      label = paste(
+        "χ2 =",  round(statistic,2),
+        "; df =", df, 
+        "; Bonferroni p =", p)
+    ),
+    hjust = 0, vjust = 1.5, size = 4, color = "black", inherit.aes = FALSE
+  ) ; plot_rodentia
+
+fig <- cowplot::plot_grid(plot, plot_mammals_without, plot_bat, plot_rodentia, 
+                   ncol = 1, nrow = 4, align = "v", labels = "auto"); fig
+
+# Export the figure:
+ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.pdf"),
+       plot=fig, width=5, height=12, units="in", dpi = "print", cairo_pdf)
+
+## Compare slope of n authors and n countries ----
+#mydata_long <- mydata %>%
+#  pivot_longer(cols = c(N_authors, N.Countries),
+#               names_to = "group",
+#               values_to = "count") %>%
+#  mutate(group = factor(group, levels = c("N_authors", "N.Countries")))
+#
+## Ajustar modelo de regressão Poisson com interação
+#modelo <- glm(count ~ Year * group,
+#              family = poisson(link = "log"), data = mydata_long)
+#
+#summary(modelo)
+#
+## Preparando os dados
+#data_long <- mydata %>%
+#  pivot_longer(cols = c(N_authors, N.Countries),
+#               names_to = "variable", values_to = "value") %>%
+#  mutate(variable = recode(variable, 
+#                           "N_authors" = "Authors", 
+#                           "N.Countries" = "Countries"))
+#
+## Ajustando as linhas separadamente
+#line_authors <- data_long %>% filter(variable == "Authors")
+#line_countries <- data_long %>% filter(variable == "Countries")
+#
+## Calculando as previsões para cada linha
+#pred_authors <- predict(lm(value ~ Year, data = line_authors), newdata = line_authors)
+#pred_countries <- predict(lm(value ~ Year, data = line_countries), newdata = line_countries)
+#
+## Criando o data frame para a área entre as linhas
+#area_data <- data.frame(
+#  Year = line_authors$Year,
+#  ymin = pmin(pred_authors, pred_countries),
+#  ymax = pmax(pred_authors, pred_countries),
+#  fill = ifelse(pred_authors > pred_countries, "blue", "orange")
+#)
+#
+## Criando o gráfico
+#ggplot(data_long, aes(x = Year, y = value, color = variable)) +
+#  # Pontos com opacidade
+#  geom_point(alpha = 0.3, size = 1.5) +
+#  # Retas de regressão
+#  geom_smooth(method = "lm", se = FALSE, size = 1.2) +
+#  # Sombra entre as retas
+#  geom_ribbon(data = area_data, aes(x = Year, ymin = ymin, ymax = ymax, fill = fill), alpha = 0.2, inherit.aes = FALSE) +
+#  # Ajustando as cores
+#  scale_color_manual(values = c("Authors" = "#0072B2", "Countries" = "#D55E00")) +
+#  scale_fill_manual(values = c("blue" = "#0072B2", "orange" = "#D55E00")) +
+#  # Rótulos dos eixos
+#  labs(x = "Year", y = "Count", color = "", fill = "") +
+#  # Removendo grid e ajustando tema
+#  theme_minimal(base_size = 14) +
+#  theme(
+#    panel.grid = element_blank(),
+#    axis.line = element_line(color = "black"),
+#    axis.ticks = element_line(color = "black"),
+#    legend.position = c(0.05, 0.95),
+#    legend.justification = c(0, 1),
+#    legend.background = element_rect(fill = "white", color = "black", size = 0.5),
+#    legend.title = element_blank(),
+#    legend.text = element_text(size = 10)
+#  )
+
+plot_ancova_mammals <- mydata_expanded %>%
+  ggplot(aes(x = log10(N_authors), y = log10(N.Countries), color = TypeOfStudy)) + #, color = TypeOfStudy
   geom_point(alpha = 0.7) +
   geom_smooth(method = "lm", se = FALSE) +
   theme_minimal() +
-  theme(legend.position = "none")  +
-  ylab("")
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(color = "black"),
+    legend.position = "none"
+  ) +
+  labs(x = NULL, y = expression(Log[10]("N. Countries"))); plot_ancova_mammals
+
+plot_ancova_without <- mydata_expanded %>%
+  filter(Order != "Chiroptera" & Order != "Rodentia") %>%
+  ggplot(aes(x = log10(N_authors), y = log10(N.Countries), color = TypeOfStudy)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(color = "black"),
+    legend.position = ""
+  ) +
+  labs(x = NULL, y = NULL); plot_ancova_without 
+
+plot_ancova_bats <- mydata_expanded %>%
+  filter(Order == "Chiroptera") %>%
+  ggplot(aes(x = log10(N_authors), y = log10(N.Countries), color = TypeOfStudy)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(color = "black"),
+    legend.position = "none"
+  ) +
+  labs(x = expression(Log[10]("N. Authors")),
+       y = expression(Log[10]("N. Countries")))
+
+plot_ancova_rodents <- mydata_expanded %>%
+  filter(Order == "Rodentia") %>%
+  ggplot(aes(x = log10(N_authors), y = log10(N.Countries), color = TypeOfStudy)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(color = "black"),
+    legend.position = "none"
+  ) +
+  labs(x = expression(Log[10]("N authors")), y = NULL)
 
 # Plot without legend
 plot_grid <- plot_grid(plot_ancova_mammals, plot_ancova_without,
                        plot_ancova_bats, plot_ancova_rodents,
-                       ncol = 2, nrow = 2, labels = "auto")
+                       ncol = 2, nrow = 2, labels = "auto"); plot_grid
 
 # extract legend
-legend_plot <- mydata %>%
+legend_plot <- mydata_expanded %>%
   ggplot(aes(x = log10(N_authors), y = log10(N.Countries), color = TypeOfStudy)) +
   geom_point(alpha = 0.7) +
   geom_smooth(method = "lm", se = FALSE) +
@@ -4221,188 +4539,6 @@ plot_final <- plot_grid(
   plot_grid, legenda, ncol = 1, 
   rel_heights = c(1, 0.08)); plot_final
 
-# export figure
+## export figure
 ggsave(paste0(getwd(), "/figures/FigureS2.Scatterplot_nauthors_ncountries.pdf"),
-       plot=plot_final, width=8, height=6, units="in", dpi = "print", cairo_pdf)
-
-# Violinplot of each group
-plot <- mydata %>%
-  mutate(TypeOfStudy = factor(TypeOfStudy,
-                              levels = c("Taxonomic \nReview \n+ Molecular",
-                                         "Molecular",
-                                         "Taxonomic \nReview",
-                                         "Other \nevidences"))) %>%
-  ggplot(aes(x = TypeOfStudy, y = N.Countries)) +
-  geom_violin(width = 0.8, fill = "black", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
-  geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
-  
-  #stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
-  #                   tip.length = 0.02, label.y = c(13.1, 14.4, 15.6, 16.9, 18.1, 18.4), size = 3) +  # Ajuste o size conforme necessário
-  
-  # Teste global (Kruskal-Wallis) um pouco acima
-  #stat_compare_means(method = "kruskal.test", label.x = .75, label.y = 19, size = 3)+  # Ajuste o size conforme necessário
-  # Adiciona as letras de significância com geom_text
-  
-  geom_text(aes(x = 1, y = 10, label = "ab"), size = 4) +  # "AB" em Taxonomic Review + Molecular
-  geom_text(aes(x = 2, y = 14, label = "b"), size = 4) +   # "B" em Molecular
-  geom_text(aes(x = 3, y = 8.0, label = "a"), size = 4) +   # "A" em Taxonomic Review
-  geom_text(aes(x = 4, y = 7.0, label = "a", fontface = "plain"), size = 4) +   # "A" em Other evidences
-  
-  labs(
-    title = "",
-    x = "",
-    y = ""
-  ) +
-  scale_y_continuous(limits = c(0,15), breaks = c(5, 10, 15), expand = expansion(add = c(0, .5))) +
-  theme_minimal() +
-  theme(
-    axis.title.y = element_text(size = 18, face = "bold"), 
-    legend.position = "none",
-    #plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
-    axis.text.x = element_blank(),
-    axis.text.y = element_text(size = 12, color = "black"),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.ticks = element_blank(),
-    axis.line = element_line(color = "black")
-  ) ; plot
-
-# 
-plot_mammals_without <- mydata %>%
-  filter(Order != "Chiroptera" & Order != "Rodentia") %>%
-  mutate(TypeOfStudy = factor(TypeOfStudy,
-                              levels = c("Taxonomic \nReview \n+ Molecular",
-                                         "Molecular",
-                                         "Taxonomic \nReview",
-                                         "Other \nevidences"))) %>%
-  ggplot(aes(x = TypeOfStudy, y = N.Countries)) +
-  geom_violin(width = 0.8, fill = "#ff3352", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
-  geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
-  
-  #stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
-  #                   tip.length = 0.02, label.y = c(13.1, 14.4, 15.6, 16.9, 18.1, 18.4), size = 3) +  # Ajuste o size conforme necessário
-  
-  # Teste global (Kruskal-Wallis) um pouco acima
-  #stat_compare_means(method = "kruskal.test", label.x = .75, label.y = 19, size = 3)+  # Ajuste o size conforme necessário
-  geom_text(aes(x = 1, y = 6, label = "a"), size = 4) +  # "A" em Taxonomic Review + Molecular
-  geom_text(aes(x = 2, y = 14, label = "b"), size = 4) +   # "B" em Molecular
-  geom_text(aes(x = 3, y = 6, label = "b"), size = 4) +   # "B" em Taxonomic Review
-  geom_text(aes(x = 4, y = 7, label = "b"), size = 4) +   # "B" em Other evidences
-  
-  labs(
-    title = "",
-    x = "",
-    y = ""
-  ) +
-  scale_y_continuous(limits = c(0, 15), breaks = c(5, 10, 15), expand = expansion(add = c(0, .5))) +
-  theme_minimal() +
-  theme(
-    plot.margin=unit(c(t = 0, r = 0, b = 0, l = 0), "cm"),
-    #plot.margin = margin(5, 5, 5, 5, unit = "pt"),
-    legend.position = "none",
-    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
-    axis.text.x = element_blank(),
-    axis.text.y = element_text(size = 12, color = "black"),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.ticks = element_blank(),
-    axis.line = element_line(color = "black")
-  ) ; plot_mammals_without
-
-plot_bat <- mydata %>%
-  filter(Order == "Chiroptera") %>%
-  mutate(TypeOfStudy = factor(TypeOfStudy,
-                              levels = c("Taxonomic \nReview \n+ Molecular",
-                                         "Molecular",
-                                         "Taxonomic \nReview",
-                                         "Other \nevidences"))) %>%
-  ggplot(aes(x = TypeOfStudy, y = N.Countries)) +
-  geom_violin(width = 0.8, fill = "#7fc97f", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
-  geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
-  
-  #stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
-  #                   tip.length = 0.02, label.y = c(13.1, 14.4, 15.6, 16.9, 18.1, 18.4), size = 3) +  # Ajuste o size conforme necessário
-  
-  # Teste global (Kruskal-Wallis) um pouco acima
-  #stat_compare_means(method = "kruskal.test", label.x = .75, label.y = 19, size = 3)+  # Ajuste o size conforme necessário
-  geom_text(aes(x = 1, y = 9.5, label = "a"), size = 4) +  # "A" em Taxonomic Review + Molecular
-  geom_text(aes(x = 2, y = 8.5, label = "a"), size = 4) +   # "A" em Molecular
-  geom_text(aes(x = 3, y = 5.5, label = "a"), size = 4) +   # "A" em Taxonomic Review
-  geom_text(aes(x = 4, y = 5.5, label = "a"), size = 4) +   # "A" em Other evidences
-  
-  labs(
-    title = "",
-    x = "",
-    y = ""
-  ) +
-  scale_y_continuous(limits = c(0, 10), breaks = c(1, 5, 10), expand = expansion(add = c(0, .5))) +
-  theme_minimal() +
-  theme(
-    plot.margin=unit(c(t = 0, r = 0, b = 0, l = 0), "cm"),
-    #plot.margin = margin(5, 5, 5, 5, unit = "pt"),
-    legend.position = "none",
-    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
-    axis.text.x = element_blank(),
-    axis.text.y = element_text(size = 12, color = "black"),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.ticks = element_blank(),
-    axis.line = element_line(color = "black")
-  ) ; plot_bat
-
-plot_rodentia <- mydata %>%
-  filter(Order == "Rodentia") %>%
-  mutate(TypeOfStudy = factor(TypeOfStudy,
-                              levels = c("Taxonomic \nReview \n+ Molecular",
-                                         "Molecular",
-                                         "Taxonomic \nReview",
-                                         "Other \nevidences"))) %>%
-  ggplot(aes(x = TypeOfStudy, y = N.Countries)) +
-  geom_violin(width = 0.8, fill = "#386cb0", alpha = 0.5, adjust = 1.5) +  # "adjust" suaviza o violino
-  geom_boxplot(width = 0.1, color = "black", fill = "white", alpha = 0.1) +
-  
-  #stat_compare_means(comparisons = comparisons, method = "wilcox.test", label = "p.signif",
-  #                   tip.length = 0.02, label.y = c(13.1, 14.4, 15.6, 16.9, 18.1, 18.4), size = 3) +  # Ajuste o size conforme necessário
-  
-  # Teste global (Kruskal-Wallis) um pouco acima
-  #stat_compare_means(method = "kruskal.test", label.x = .75, label.y = 19, size = 3)+  # Ajuste o size conforme necessário
-  geom_text(aes(x = 1, y = 5.5, label = "a"), size = 4, family = "Arial", fontface = "plain") +  # "A" em Taxonomic Review + Molecular
-  geom_text(aes(x = 2, y = 5.5, label = "a"), size = 4, family = "Arial", fontface = "plain") +   # "B" em Molecular
-  geom_text(aes(x = 3, y = 7.5, label = "ab"), size = 4, family = "Arial", fontface = "plain") +   # "B" em Taxonomic Review
-  geom_text(aes(x = 4, y = 4.5, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "B" em Other evidences
-  
-  labs(
-    title = "",
-    x = "",
-    y = ""
-  ) +
-  scale_y_continuous(limits = c(0, 10), breaks = c(1, 5, 10), expand = expansion(add = c(0, .5))) +
-  theme_minimal() +
-  theme(
-    legend.position = "none",
-    plot.margin=unit(c(t = 0, r = 0, b = 0, l = 0), "cm"),
-    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
-    axis.text.x = element_blank(),
-    axis.text.y = element_text(size = 12, color = "black"),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.ticks = element_blank(),
-    axis.line = element_line(color = "black")
-  ) ; plot_rodentia
-
-#fig <- ggpubr::ggarrange(plot, plot_mammals_without, plot_bat, plot_rodentia, 
-#                         ncol = 1, nrow = 4, 
-#                         labels = "auto",
-#                         font.label = list(size = 16, color = "black"),
-#                         align = "hv");fig  # Proporções de largura entre colunas); fig
-
-fig <- cowplot::plot_grid(plot, plot_mammals_without, plot_bat, plot_rodentia, 
-                   ncol = 1, nrow = 4, align = "v", labels = "auto"); fig
-
-# Export the figure:
-ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.pdf"),
-       plot=fig, width=5, height=12, units="in", dpi = "print", cairo_pdf)
-#ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.jpg"),
-#       plot=fig, width=20, height=6, units="in", dpi = "print")
-#ggsave(paste0(getwd(), "/figures/Figure5.EvidencesCompare.tiff"), 
-#       plot=fig, width=20, height=6, units="in", dpi = "print")
+       plot=plot_grid, width=9, height=6, units="in", dpi = "print", cairo_pdf)
