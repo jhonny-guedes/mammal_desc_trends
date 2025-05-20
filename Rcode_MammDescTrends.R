@@ -36,15 +36,13 @@ rm(list=ls()); gc()
 setwd()
 
 # 1) Load and understand the dataset ----
-
-# # Correlation with TypeSeries and N. Specimens
+# Correlation with TypeSeries and N. Specimens
 #local_directory <-  file.path("C:", "Users", "mmoro",
 #                              "OneDrive", "mammals_desc")
-#
-##typeseries <- readxl::read_excel(
-##  file.path(local_directory,
-##            "RawDataToCompile_Mammalia.xlsx"), sheet = "SpeciesName")
-#
+#typeseries <- readxl::read_excel(
+#  file.path(local_directory,
+#            "RawDataToCompile_Mammalia.xlsx"), sheet = "SpeciesName")
+
 ## Pearson correlation between number of specimens and number of taxa compared
 ##mydata_cor <- typeseries %>% 
 ##  filter(!is.na(N.Specimens) & !is.na(N.TypeSeries))
@@ -202,6 +200,35 @@ rm(list=setdiff(ls(),c("data"))); gc() # clean workspace
 
 # Make a backup
 mydata <- data
+
+# Check VIF multicollinearity 
+vif_data <- mydata %>%
+  select("N.Specimens", "TaxaCompared", "N.Pages", "N_evidencesI") %>%
+  remove_missing()
+mammals <- usdm::vif(vif_data)
+
+vif_data <- mydata %>%
+  filter(Order != "Chiroptera" & Order != "Rodentia") %>%
+  select("N.Specimens", "TaxaCompared", "N.Pages", "N_evidencesI") %>%
+  remove_missing()
+nonbats_nonrodents <- usdm::vif(vif_data)[2]
+
+vif_data <- mydata %>%
+  filter(Order == "Rodentia") %>%
+  select("N.Specimens", "TaxaCompared", "N.Pages", "N_evidencesI") %>%
+  remove_missing()
+rodentia <- usdm::vif(vif_data)[2]
+
+vif_data <- mydata %>%
+  filter(Order == "Chiroptera") %>%
+  select("N.Specimens", "TaxaCompared", "N.Pages", "N_evidencesI") %>%
+  remove_missing()
+bats <- usdm::vif(vif_data)[2]
+
+data.frame(mammals,
+           nonbats_nonrodents,
+           rodentia,
+           bats)
 
 # Check mean and variance across response variables
 names(mydata)
@@ -1283,6 +1310,10 @@ rm(list=setdiff(ls(),c("data","mydata","extract_model_results"))); gc()
 ## Non-bats & non-rodents ----
 mammals_without <- mydata %>%
   filter(Order != "Rodentia" & Order != "Chiroptera")
+
+# Check multicolinearity among continuous response variables
+usdm::vif(mammals_without[ , year.z:Latitude.z])
+
 results <- data.frame()
 levels(mydata$TaxonomicReview) # "No" taxonomic review as reference
 #------------------------------------------------------------#
@@ -3861,36 +3892,81 @@ ggsave(paste0(getwd(), "/figures/aux.pdf"),
        plot=all_mammals, width=9, height=6, units="in", dpi = "print", cairo_pdf())
 
 # Obtain proportion
+# Mammals
 df_prop <- mydata %>%
-  filter(!is.na(Molecular)) %>%
-  group_by(Year, Molecular) %>%
-  summarise(n = n()) %>%
-  mutate(prop = n / sum(n))
+  select(Year, Molecular) %>%
+  remove_missing() %>%
+  group_by(Year) %>%
+  summarise(
+    total = n(),
+    n_molecular = sum(Molecular),
+    prop = n_molecular / total
+  ) 
 
+cor_spearman <- cor.test(df_prop_cor$Year,
+                         df_prop_cor$prop,
+                         method = "spearman")
+mammals_label <- data.frame(cor = round(cor_spearman$estimate, 2), 
+                        p = ifelse(cor_spearman$p.value < 0.001, "<0.001", 
+                                   round(cor_spearman$p.value, 3)))
+
+# Non-bats & non-rodents
 df_prop_without <- mydata %>%
-  filter(!is.na(Molecular)) %>%
   filter(Order != "Rodentia" & Order != "Chiroptera") %>%
-  group_by(Year, Molecular) %>%
-  summarise(n = n()) %>%
-  mutate(prop = n / sum(n))
+  select(Year, Molecular) %>%
+  remove_missing() %>%
+  group_by(Year) %>%
+  summarise(
+    total = n(),
+    n_molecular = sum(Molecular),
+    prop = n_molecular / total
+  )
 
+cor_spearman <- cor.test(df_prop_without$Year,
+                         df_prop_without$prop,
+                         method = "spearman")
+nonbatsnonrodents_label <- data.frame(cor = round(cor_spearman$estimate, 2), 
+                            p = ifelse(cor_spearman$p.value < 0.001, "<0.001", 
+                                       round(cor_spearman$p.value, 3)))
+# bats
 df_prop_bats <- mydata %>%
-  filter(!is.na(Molecular)) %>%
   filter(Order == "Chiroptera") %>%
-  group_by(Year, Molecular) %>%
-  summarise(n = n()) %>%
-  mutate(prop = n / sum(n))
+  select(Year, Molecular) %>%
+  remove_missing() %>%
+  group_by(Year) %>%
+  summarise(
+    total = n(),
+    n_molecular = sum(Molecular),
+    prop = n_molecular / total
+  )
 
+cor_spearman <- cor.test(df_prop_bats$Year,
+                         df_prop_bats$prop,
+                         method = "spearman")
+bats_label <- data.frame(cor = round(cor_spearman$estimate, 2), 
+                                      p = ifelse(cor_spearman$p.value < 0.001, "<0.001", 
+                                                 round(cor_spearman$p.value, 3)))
+# Rodents
 df_prop_rodents <- mydata %>%
-  filter(!is.na(Molecular)) %>%
   filter(Order == "Rodentia") %>%
-  group_by(Year, Molecular) %>%
-  summarise(n = n()) %>%
-  mutate(prop = n / sum(n))
+  select(Year, Molecular) %>%
+  remove_missing() %>%
+  group_by(Year) %>%
+  summarise(
+    total = n(),
+    n_molecular = sum(Molecular),
+    prop = n_molecular / total
+  )
+
+cor_spearman <- cor.test(df_prop_rodents$Year,
+                         df_prop_rodents$prop,
+                         method = "spearman")
+rodents_label <- data.frame(cor = round(cor_spearman$estimate, 2), 
+                         p = ifelse(cor_spearman$p.value < 0.001, "<0.001",
+                                    round(cor_spearman$p.value, 3)))
 
 # all mammals 
 inset <- df_prop %>%
-  filter(Molecular == 1) %>%
   ggplot(aes(x = Year, y = prop)) +
   geom_point(size = 2, alpha = 0.5, color = "black") +
   geom_smooth(method = "lm", se = FALSE, linewidth = 1, color = "black") + 
@@ -3898,13 +3974,22 @@ inset <- df_prop %>%
   scale_y_continuous(labels = scales::percent_format())+
   scale_x_continuous(breaks = seq(1990, 2022, by = 4))+
   theme_classic()+
-  theme(axis.title = element_text(face = 'bold', size = 7),
-        axis.text = element_text(size = 6),
-        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)); inset
+  theme(axis.title = element_text(face = 'bold', size = 10),
+        axis.text = element_text(size = 10),
+        axis.text.x = element_text(angle = 0, hjust = .5, vjust = 0)) +
+  geom_text(
+    data = mammals_label,
+    aes(
+      x = min(data$Year, na.rm = TRUE), 
+      y = Inf, 
+      label = paste("rs =", round(cor, 3),
+                    "\nBonferroni p =", p )
+    ),
+    hjust = 0, vjust = 1.5, size = 3, color = "black", inherit.aes = FALSE
+  ); inset
 
 # non-bats & non-rodents
 inset_without <- df_prop_without %>%
-  filter(Molecular == 1) %>%
   ggplot(aes(x = Year, y = prop)) +
   geom_point(size = 2, alpha = 0.5, color = "#ff3352") +
   geom_smooth(method = "lm", se = FALSE, linewidth = 1, color = "#ff3352") + 
@@ -3912,13 +3997,22 @@ inset_without <- df_prop_without %>%
   scale_y_continuous(labels = scales::percent_format())+
   scale_x_continuous(breaks = seq(1990, 2022, by = 4))+
   theme_classic()+
-  theme(axis.title = element_text(face = 'bold', size = 7),
-        axis.text = element_text(size = 6),
-        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)); inset_without
+  theme(axis.title = element_text(face = 'bold', size = 10),
+        axis.text = element_text(size = 10),
+        axis.text.x = element_text(angle = 0, hjust = .5, vjust = 0)) +
+  geom_text(
+    data = nonbatsnonrodents_label,
+    aes(
+      x = min(data$Year, na.rm = TRUE), 
+      y = Inf, 
+      label = paste("rs =", round(cor, 3),
+                    "\nBonferroni p =", p )
+    ),
+    hjust = 0, vjust = 1.5, size = 3, color = "black", inherit.aes = FALSE
+  ); inset_without
 
 # bats
 inset_bats <- df_prop_bats %>%
-  filter(Molecular == 1) %>%
   ggplot(aes(x = Year, y = prop)) +
   geom_point(size = 2, alpha = 0.5, color = "#7fc97f") +
   geom_smooth(method = "lm", se = FALSE, linewidth = 1, color = "#7fc97f") + 
@@ -3926,13 +4020,22 @@ inset_bats <- df_prop_bats %>%
   scale_y_continuous(labels = scales::percent_format())+
   scale_x_continuous(breaks = seq(1990, 2022, by = 4))+
   theme_classic()+
-  theme(axis.title = element_text(face = 'bold', size = 7),
-        axis.text = element_text(size = 6),
-        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)); inset_bats
+  theme(axis.title = element_text(face = 'bold', size = 10),
+        axis.text = element_text(size = 10),
+        axis.text.x = element_text(angle = 0, hjust = .5, vjust = 0)) +
+  geom_text(
+    data = bats_label,
+    aes(
+      x = min(data$Year, na.rm = TRUE), 
+      y = Inf, 
+      label = paste("rs =", round(cor, 3),
+                    "\nBonferroni p =", p )
+    ),
+    hjust = 0, vjust = 1.5, size = 3, color = "black", inherit.aes = FALSE
+  ); inset_bats
 
 # rodents
 inset_rodents <- df_prop_rodents %>%
-  filter(Molecular == 1) %>%
   ggplot(aes(x = Year, y = prop)) +
   geom_point(size = 2, alpha = 0.5, color = "#386cb0") +
   geom_smooth(method = "lm", se = FALSE, linewidth = 1.0, color = "#386cb0") + 
@@ -3940,22 +4043,25 @@ inset_rodents <- df_prop_rodents %>%
   scale_y_continuous(labels = scales::percent_format())+
   scale_x_continuous(breaks = seq(1990, 2022, by = 4))+
   theme_classic()+
-  theme(axis.title = element_text(face = 'bold', size = 7),
-        axis.text = element_text(size = 6),
-        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)); inset_rodents
+  theme(axis.title = element_text(face = 'bold', size = 10),
+        axis.text = element_text(size = 10),
+        axis.text.x = element_text(angle = 0, hjust = .5, vjust = 0)) +
+  geom_text(
+    data = rodents_label,
+    aes(
+      x = min(data$Year, na.rm = TRUE), 
+      y = Inf, 
+      label = paste("rs =", round(cor, 3),
+                    "\nBonferroni p =", p )
+    ),
+    hjust = 0, vjust = 1.5, size = 3, color = "black", inherit.aes = FALSE
+  ); inset_rodents
 
 fig <- cowplot::plot_grid(inset, inset_without, inset_bats, inset_rodents,
                    ncol = 2, nrow = 2, align = "v", labels = "auto"); fig
-# p_grob <- ggplotGrob(p) # convert the main plot to a grob to retain the formatting
-
-# Create the final plot using ggdraw and draw_plot
-#final_plot <- ggdraw() +
-#  draw_grob(p_grob) +  # use draw_grob to add the main plot
-#  draw_plot(inset, .08, .62, width = .3, height = .3); final_plot # add the inset plot
-
 # Save the plot
 ggsave(paste0(getwd(), "/figures/Figure3.MolecularMethods.pdf"), plot=fig, 
-       width=7, height=5, units="in", dpi = "print", cairo_pdf())
+       width=9, height=6, units="in", dpi = "print", cairo_pdf())
 
 ### Plot the proportion of species described with molecular data per taxa ###
 levels(as.factor(mydata$Molecular))
@@ -4542,3 +4648,180 @@ plot_final <- plot_grid(
 ## export figure
 ggsave(paste0(getwd(), "/figures/FigureS2.Scatterplot_nauthors_ncountries.pdf"),
        plot=plot_grid, width=9, height=6, units="in", dpi = "print", cairo_pdf)
+
+## Collector and authorship ----
+# A proporcao de coletor participando de artigos, aumenta ao longo do tempo?
+local_directory <-  file.path("C:", "Users", "mmoro",
+                              "OneDrive", "mammals_desc")
+
+rawdata <- readxl::read_excel(
+  file.path(local_directory,
+            "RawDataToCompile_Mammalia.xlsx"), sheet = "RawData")
+names(rawdata)
+
+# All mammals
+all_mammals_data <- rawdata %>%
+  select(Year, CollectionIsAuthor) %>%
+  remove_missing() %>%
+  group_by(Year) %>%
+  summarise(
+    total = n(),
+    n_autor_coletor = sum(CollectionIsAuthor),
+    prop_autor_coletor = n_autor_coletor / total
+  ) 
+
+cor_spearman <- cor.test(all_mammals_data$Year,
+                         all_mammals_data$prop_autor_coletor,
+                         method = "spearman")
+
+rho_label <- data.frame(cor = round(cor_spearman$estimate, 2), 
+                        p = round(signif(cor_spearman$p.value), 3))
+
+all_mammals <- all_mammals_data %>%
+  ggplot(aes(x = Year, y = prop_autor_coletor)) +
+  geom_point(size = 2, alpha = 0.5, color = "black") +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1, color = "black") + 
+  labs(x = NULL, y = "Prop. spp. described\nwith collector is also author") +
+  scale_y_continuous(labels = scales::percent_format())+
+  scale_x_continuous(breaks = seq(1990, 2022, by = 4))+
+  theme_classic()+
+  theme(axis.title = element_text(face = 'bold', size = 10),
+        axis.text = element_text(size = 10),
+        axis.text.x = element_text(angle = 0, hjust = .5, vjust = 0)) +
+  geom_text(
+    data = rho_label,
+    aes(
+      x = min(data$Year, na.rm = TRUE), 
+      y = Inf, 
+      label = paste("rs =", round(cor, 3),
+                    "\nBonferroni p =", p )
+    ),
+    hjust = 0, vjust = 1.5, size = 3, color = "black", inherit.aes = FALSE
+  ); all_mammals
+
+# Non-bats & non-rodents
+nonbats_nonrodents_data <- rawdata %>%
+  filter(Order != "Chiroptera" & Order != "Rodentia") %>%
+  select(Year, CollectionIsAuthor) %>%
+  remove_missing() %>%
+  group_by(Year) %>%
+  summarise(
+    total = n(),
+    n_autor_coletor = sum(CollectionIsAuthor),
+    prop_autor_coletor = n_autor_coletor / total
+  )
+
+cor_spearman <- cor.test(nonbats_nonrodents_data$Year,
+                         nonbats_nonrodents_data$prop_autor_coletor,
+                         method = "spearman")
+
+rho_label <- data.frame(cor = round(cor_spearman$estimate, 2), 
+                        p = round(signif(cor_spearman$p.value), 3))
+
+nonbats_nonrodents <- nonbats_nonrodents_data %>%
+  ggplot(aes(x = Year, y = prop_autor_coletor)) +
+  geom_point(size = 2, alpha = 0.5, color = "#ff3352") +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1, color = "#ff3352") + 
+  labs(x = NULL, y = NULL) +
+  scale_y_continuous(labels = scales::percent_format())+
+  scale_x_continuous(breaks = seq(1990, 2022, by = 4))+
+  theme_classic()+
+  theme(axis.title = element_text(face = 'bold', size = 10),
+        axis.text = element_text(size = 10),
+        axis.text.x = element_text(angle = 0, hjust = .5, vjust = 0)) +
+  geom_text(
+    data = rho_label,
+    aes(
+      x = min(data$Year, na.rm = TRUE), 
+      y = Inf, 
+      label = paste("rs =", round(cor, 3),
+                    "\nBonferroni p =", p )
+    ),
+    hjust = 0, vjust = 1.5, size = 3, color = "black", inherit.aes = FALSE
+  ); nonbats_nonrodents
+
+# Bats
+bats_data <- rawdata %>%
+  filter(Order == "Chiroptera") %>%
+  select(Year, CollectionIsAuthor) %>%
+  remove_missing() %>%
+  group_by(Year) %>%
+  summarise(
+    total = n(),
+    n_autor_coletor = sum(CollectionIsAuthor),
+    prop_autor_coletor = n_autor_coletor / total
+  )
+
+bats <- bats_data %>%
+  ggplot(aes(x = Year, y = prop_autor_coletor)) +
+  geom_point(size = 2, alpha = 0.5, color = "#7fc97f") +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1, color = "#7fc97f") + 
+  labs(x = "Year of description", y = "Prop. spp. described\nwith collector is also author") +
+  scale_y_continuous(labels = scales::percent_format())+
+  scale_x_continuous(breaks = seq(1990, 2022, by = 4))+
+  theme_classic()+
+  theme(axis.title = element_text(face = 'bold', size = 10),
+        axis.text = element_text(size = 10),
+        axis.text.x = element_text(angle = 0, hjust = .5, vjust = 0)) +
+  geom_text(
+    data = rho_label,
+    aes(
+      x = min(data$Year, na.rm = TRUE), 
+      y = Inf, 
+      label = paste("rs =", round(cor, 3),
+                    "\nBonferroni p =", p )
+    ),
+    hjust = 0, vjust = 1.5, size = 3, color = "black", inherit.aes = FALSE
+  ); bats
+
+# Rodents
+rodents_data <- rawdata %>%
+  filter(Order == "Rodentia") %>%
+  select(Year, CollectionIsAuthor) %>%
+  remove_missing() %>%
+  group_by(Year) %>%
+  summarise(
+    total = n(),
+    n_autor_coletor = sum(CollectionIsAuthor),
+    prop_autor_coletor = n_autor_coletor / total
+  )
+
+cor_spearman <- cor.test(rodents_data$Year,
+                         rodents_data$prop_autor_coletor,
+                         method = "pearson")
+
+rho_label <- data.frame(cor = round(cor_spearman$estimate, 2), 
+                        p = round(signif(cor_spearman$p.value), 3))
+
+rodents <- rodents_data %>%
+  ggplot(aes(x = Year, y = prop_autor_coletor)) +
+  geom_point(size = 2, alpha = 0.5, color = "#386cb0") +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1, color = "#386cb0") + 
+  labs(x = "Year of description", y = NULL) +
+  scale_y_continuous(labels = scales::percent_format())+
+  scale_x_continuous(breaks = seq(1990, 2022, by = 4))+
+  theme_classic()+
+  theme(axis.title = element_text(face = 'bold', size = 10),
+        axis.text = element_text(size = 10),
+        axis.text.x = element_text(angle = 0, hjust = .5, vjust = 0)) +
+  geom_text(
+    data = rho_label,
+    aes(
+      x = min(data$Year, na.rm = TRUE), 
+      y = Inf, 
+      label = paste("rs =", round(cor, 3),
+                    "\nBonferroni p =", p )
+    ),
+    hjust = 0, vjust = 1.5, size = 3, color = "black", inherit.aes = FALSE
+  ); rodents
+
+fig <- cowplot::plot_grid(all_mammals,
+                          nonbats_nonrodents,
+                          bats,
+                          rodents,
+                          ncol = 2, nrow = 2,
+                          align = "v", labels = "auto"); fig
+
+# Save the plot
+ggsave(paste0(getwd(), "/figures/FigureS8.Author&Collector.pdf"), plot=fig, 
+       width=9, height=6, units="in", dpi = "print", cairo_pdf()) 
