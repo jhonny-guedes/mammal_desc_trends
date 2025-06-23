@@ -347,8 +347,8 @@ points_sf <- sf::st_as_sf(data [ !is.na(data$Latitude) & ! is.na(data$Longitude)
                           coords = c("Longitude", "Latitude"), crs = st_crs("+proj=longlat +datum=WGS84"))
 
 # Transform data to the same projection as the realms map
-points_sf <- st_transform(points_sf, crs = crs(wwf_realms))
-compareCRS(wwf_realms, points_sf) # true
+points_sf <- st_transform(points_sf, st_crs(wwf_realms))
+st_crs(wwf_realms) == st_crs(points_sf) # true
 
 # get aspect ratio of the spatial object for controlling white space when saving the plot
 #plot_ratio <- tmaptools::get_asp_ratio(wwf_realms) # will mutiply width in ggsave
@@ -443,9 +443,9 @@ PropPerRealm <- PropPerRealm %>%
 levels(as.factor(PropPerRealm$NewOrder))
 MyColors <- c(
   "Chiroptera" = "#7fc97f",
-  "Eulipotyphla" = "#beaed4",
-  "Other taxa" = "#fdc086",
-  "Primates" = "#ffff99",
+  "Eulipotyphla" = "#fa3238",
+  "Other taxa" = "#ffa8ab",
+  "Primates" = "#ff7579",
   "Rodentia" = "#386cb0"
 )
 names(MyColors)<-c("Chiroptera", "Eulipotyphla", "Other taxa", "Primates", "Rodentia")
