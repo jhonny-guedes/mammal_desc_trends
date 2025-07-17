@@ -68,8 +68,7 @@ Here we add the description of each column present in the `Dataset.RData` file.
 | **TaxaComparedExamined** | Number of taxa analyzed/inspected for comparisons with the new species.                                                                                     |
 | **TaxaCompared**         | Number of taxa mentioned in the text during comparisons with the new species.                                                                               |
 | **N.Pages**              | Number of pages (METHODS and RESULTS sections only) of the article divided by the number of described species. One page consists of 4x0.25 parts.           |
-| **N_evidencesI**         | Number of evidence types used in descriptions. Morphometrics, osteology, and genes sequenced are treated as continuous characters, while others are binary. |
-| **N_evidencesII**        | Number of evidence types used in descriptions. All variables are treated as binary (0 or 1), giving them equal weight.                                      |
+| **N_evidences**        | Number of evidence types used in descriptions. All variables are treated as binary (0 or 1), giving them equal weight.                                      |
 
 ### Usage notes
 
