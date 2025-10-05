@@ -41,7 +41,7 @@ The repository contains three files:
 Here we add the description of each column present in the `Dataset.RData` file.
 
 | **Column Name**          | **Description**                                                                                                                                   |
-|-----------------------|-------------------------------------------------|
+|--------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
 | **SpeciesName**          | Binomial name.                                                                                                                                    |
 | **Genus**                | Taxonomic genus to which a species belongs.                                                                                                       |
 | **Family**               | Taxonomic family to which a species belongs.                                                                                                      |
@@ -71,6 +71,7 @@ Here we add the description of each column present in the `Dataset.RData` file.
 | **N_evidences**          | Number of evidence types used in descriptions. All variables are treated as binary (0 or 1), giving them equal weight.                            |
 | **Latitude & Longitude** | Species type-locality coordinates.                                                                                                                |
 | **CollectionIsAuthor**   | Binary variable indicating whether the collector of the holotype is the author of the description manuscript.                                     |
+| **wwf_realm**            | Type locality realm according to <https://ecoregions.appspot.com/>                                                                                |
 
 ### Usage notes
 
