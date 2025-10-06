@@ -18,19 +18,17 @@ The repository contains three files:
 
     3.  **Temporal trends in robustness of publications – based on annual means**
 
-    4.  **Publication robustness by mammal order**
+    4.  **Temporal trends in robustness of publications – based on GLMs**
 
-    5.  **Temporal trends in robustness of publications – based on GLMs**
+    5.  **Create plots with model coefficients and confidence intervals**
 
-    6.  **Create plots with model coefficients and confidence intervals**
+    6.  **Check phylogenetic correlation in model residuals**
 
-    7.  **Check phylogenetic correlation in model residuals**
+    7.  **Make phylogenetic correlograms**
 
-    8.  **Make phylogenetic correlograms**
+    8.  **Explore temporal trends in the use of molecular data on mammal description**
 
-    9.  **Explore temporal trends in the use of molecular data on mammal description**
-
-    10. **Relationship between international description and taxonomy practices**
+    9.  **Relationship between international description and taxonomy practices**
 
 -   **`phylogeny/output.nex`** – Phylogeny used to generate the correlograms. The file represents 100 fully-sampled phylogenies for mammals ([Upham et al., 2019 PLoS Biology](https://doi.org/10.1371/journal.pbio.3000494)) available in Vertlife Data.
 
@@ -53,8 +51,8 @@ Here we add the description of each column present in the `Dataset.RData` file.
 | **N.Countries**          | Number of countries (based on authors' affiliations) involved in the description.                                                                 |
 | **Log10BodyMass_g**      | Maximum body mass per species (log10-transformed).                                                                                                |
 | **SppRichPerGenus**      | Per-genus species richness based on the year of each species' description.                                                                        |
-| **Morphometrics**        | Number of morphometric measurements used in the description.                                                                                      |
-| **Osteology**            | Number of osteological measurements used in the description.                                                                                      |
+| **Morphometrics**        | Binary variable indicating whether morphometrics used in the description.                                                                         |
+| **Osteology**            | Binary variable indicating whether osteology used in the description.                                                                             |
 | **Dentition**            | Binary variable indicating whether dentition data was provided in the description.                                                                |
 | **InternalAnatomy**      | Binary variable indicating whether data on internal anatomy was provided in the description.                                                      |
 | **ShapeDescription**     | Binary variable indicating whether any aspects of the species' shape were described.                                                              |
@@ -63,9 +61,7 @@ Here we add the description of each column present in the `Dataset.RData` file.
 | **Karyotype**            | Binary variable indicating whether karyotype data was provided in the description.                                                                |
 | **Molecular**            | Binary variable indicating whether the authors used molecular data in the description.                                                            |
 | **MolMethod**            | Molecular method used in the description (e.g., mtDNA, nucDNA, multiLoci, SNPs).                                                                  |
-| **N.Genes**              | Total number of genes sequenced when molecular data was used.                                                                                     |
 | **N.Specimens**          | Number of specimens of the new species used in the description.                                                                                   |
-| **TaxaComparedExamined** | Number of taxa analyzed/inspected for comparisons with the new species.                                                                           |
 | **TaxaCompared**         | Number of taxa mentioned in the text during comparisons with the new species.                                                                     |
 | **N.Pages**              | Number of pages (METHODS and RESULTS sections only) of the article divided by the number of described species. One page consists of 4x0.25 parts. |
 | **N_evidences**          | Number of evidence types used in descriptions. All variables are treated as binary (0 or 1), giving them equal weight.                            |

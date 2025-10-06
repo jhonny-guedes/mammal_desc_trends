@@ -35,7 +35,6 @@ for (i in seq_along(needed_packages)) {
 
 # Clean global environment
 rm(list=ls()); gc()
-
 # 1) Load and understand the dataset ----
 load("Dataset.Rdata")
 names(data_all)
@@ -63,20 +62,18 @@ glimpse(data_all)
 # Karyotype: Binary variable informing whether karyotype data was provided in the description.
 # Molecular: Binary variable informing whether the authors used molecular data in the description.
 # MolMethod: Informs the molecular method used in the description (i.e., mtDNA, nucDNA, multiLoci, SNPs)
-# N.Genes: Informs the total number of genes sequenced when molecular data was used.
 # N.Specimens: Informs the number of specimens of the new species used in the description.
-# TaxaComparedExamined: Informs the number of taxa the authors analysed/inspected for comparisons with the new species.
 # TaxaCompared: Informs the number of taxa mentioned in the text during comparisons with the new species.
 # N.Pages: The number of pages (METHODS and RESULTS sections only) of the article divided by the number of described species. The page is divided into 4 quadrants, meaning 1 page is composed of 4x0.25 parts.
 # N_evidences: The number of evidence types used in descriptions. All variables treated as binary (0 or 1), thus having equal weight.
 # Latitude & Longitude: Type locality coordinates
+# wwf_realm: ype locality realm according to <https://ecoregions.appspot.com/>
 
 # Check the number of species per Order
 data_all %>% 
   dplyr::group_by(Order) %>%
   dplyr::summarise(n = n()) %>%
   arrange(desc(n))
-
 # Rodentia           458
 # Chiroptera         293
 # Eulipotyphla       146
@@ -100,48 +97,41 @@ data_all %>%
 table(data_all$Order)
 prop.table(table(data_all$Order))
 
-# Check amounts of missing data among response variables and get other basic stats
-names(data_all)
-
-# Pearson correlation between number of specimens and number of taxa compared
-mydata_cor <- data_all %>% 
-  filter(!is.na(N.Specimens) & !is.na(TaxaComparedExamined))
-cor.test(data_all$TaxaCompared, data_all$TaxaComparedExamined, method = "pearson")
-
+# Check amounts of missing data among response 
+# variables and get other basic stats
 # All mammals
-summary(data_all[ , c("N.Specimens", "TaxaComparedExamined", "TaxaCompared", 
+summary(data_all[ , c("N.Specimens", "TaxaCompared", 
                   "N.Pages", "N_evidences")])
 
 # Mammals without rodents and bats
 summary(
   data_all[data_all$Order != "Chiroptera" & data_all$Order != "Rodentia",
-       c("N.Specimens", "TaxaComparedExamined", "TaxaCompared", 
+       c("N.Specimens", "TaxaCompared", 
          "N.Pages", "N_evidences")]
 )
 
 # Only Chiroptera
 summary(
   data_all[data_all$Order == "Chiroptera" ,
-           c("N.Specimens", "TaxaComparedExamined", "TaxaCompared", 
+           c("N.Specimens", "TaxaCompared", 
              "N.Pages", "N_evidences")]
 )
 
 # Only rodentia
 summary(
   data_all[data_all$Order == "Rodentia" ,
-       c("N.Specimens", "TaxaComparedExamined", "TaxaCompared", 
+       c("N.Specimens", "TaxaCompared", 
          "N.Pages", "N_evidences")]
 )
 
 rm(list=setdiff(ls(),c("data_all"))); gc() # clean workspace
-
 # Check VIF multicollinearity 
 mydata <- data_all
 
 vif_data <- mydata %>%
   select("N.Specimens", "TaxaCompared", "N.Pages", "N_evidences") %>%
   remove_missing()
-mammals <- usdm::vif(data.frame(vif_data))
+mammals <- usdm::vif(as.data.frame(vif_data))
 
 vif_data <- mydata %>%
   filter(Order != "Chiroptera" & Order != "Rodentia") %>%
@@ -547,11 +537,11 @@ names(mydata)
 cor(mydata[ , c("N_evidences", "N.Pages", "N.Specimens", "TaxaCompared")], 
     method = "spearman", use = "complete.obs")
 
-#              N_evidences N.Pages   N.Specimens  TaxaCompared
-#N_evidences   1.00000000 0.37784381  0.11561685   0.07198091
-#N.Pages       0.37784381 1.00000000  0.04700053   0.04258466
-#N.Specimens   0.11561685 0.04700053  1.00000000   0.08062655
-#TaxaCompared  0.07198091 0.04258466  0.08062655   1.00000000
+#            N_evidences     N.Pages N.Specimens TaxaCompared
+#N_evidences   1.00000000  0.34554902  0.09986710   0.02862947
+#N.Pages       0.34554902  1.00000000  0.03557486  -0.01413344
+#N.Specimens   0.09986710  0.03557486  1.00000000   0.06358000
+#TaxaCompared  0.02862947 -0.01413344  0.06358000   1.00000000
 # low correlation among response variables (all below 0.40)
 
 # Define custom labels
@@ -623,10 +613,6 @@ create_data <- function(data) {
               Osteology_sd = sd(Osteology, na.rm = T),
               Osteology_nspp = sum( ! is.na(Osteology)),
               
-              N_Genes_avg = mean(N.Genes, na.rm = T),
-              N_Genes_sd = sd(N.Genes, na.rm = T),
-              N_Genes_nspp = sum( ! is.na(N.Genes)),
-              
               R_inter_avg = mean((N.Countries/N_authors)[!is.na(N.Countries) & !is.na(N_authors)], na.rm = T),
               R_inter_sd = sd((N.Countries/N_authors)[!is.na(N.Countries) & !is.na(N_authors)], na.rm = T),
               R_inter_nspp = sum(!is.na(N.Countries) & !is.na(N_authors))) %>%
@@ -645,7 +631,7 @@ create_data <- function(data) {
 }
 
 # Function to create the plot
-breaks = seq(from = 1990, to = 2022, by = 4)
+breaks = seq(from = 1990, to = 2025, by = 5)
 create_plot <- function(data, y_label, mean, se, total_tests, nrow = nrow,
                         show_titles = TRUE, show_x_labels = TRUE) {
   
@@ -673,7 +659,7 @@ create_plot <- function(data, y_label, mean, se, total_tests, nrow = nrow,
   
   # Definir 4 breaks (usando anos existentes)
   if (n_years > 4) {
-    idx <- round(seq(1, n_years, length.out = 4))  # Índices para 4 anos equidistantes
+    idx <- round(seq(1, n_years, length.out = 5))  # Índices para 4 anos equidistantes
     x_breaks <- years[idx]
   } else {
     x_breaks <- years  # Menos de 4 anos: usar todos
@@ -738,7 +724,7 @@ create_plot <- function(data, y_label, mean, se, total_tests, nrow = nrow,
 # this may avoid the impact of outliers if using a single year.
 new_dat <- mydata[ , c("SpeciesName", "Order", "Year","N_evidences",
                        "N.Pages", "N.Specimens", "TaxaCompared", "N.Countries", "N_authors",
-                       "Morphometrics", "Osteology", "N.Genes")]
+                       "Morphometrics", "Osteology")]
 
 all_yearly_means <- create_data(new_dat) %>%
   mutate(Order = "All mammals")
@@ -800,7 +786,7 @@ yearly_means <- bind_rows(
     "Rodents"
   ))) 
 
-## 3.1. Main comprehensiveness taxonomy proxies ----
+## 3.1.) Main comprehensiveness taxonomy proxies ----
 figB <- create_plot(yearly_means, "N. of evidence",
                     mean = N_evidences_avg, 
                     se = N_evidences_se, 5, nrow = 1,
@@ -825,7 +811,7 @@ fig <- cowplot::plot_grid(figB, figC, figD, figE,
 ggsave(paste0(getwd(), "/figures/Figure2.TemporalTrends.pdf"),
        plot=fig, width=12, height=10, units="in", dpi = "print", cairo_pdf)
 
-## 3.2. Average number of countries per author across the time ----
+## 3.2.) Average number of countries per author across the time ----
 figF <- create_plot(yearly_means, "",
                     mean = R_inter_avg, 
                     se = R_inter_se, 5, nrow = 4,
@@ -836,31 +822,7 @@ figF <- figF + xlab("Year of description"); figF
 ggsave(paste0(getwd(), "/figures/FigureAux.AvgCountriesperAuthor.pdf"),
  plot=figF, width=4, height=10, units="in", dpi = "print", cairo_pdf)
 
-## 3.3. Alternative continuous proxies of taxonomy comprehensiveness ----
-figH <- create_plot(yearly_means, "Morphometrics",
-                    mean = Morphometrics_avg, 
-                    se = Morphometrics_se, 5, nrow = 1,
-                    show_titles = FALSE, show_x_labels = TRUE); figH
-
-figI <- create_plot(yearly_means, "Osteology",
-                    mean = Osteology_avg, 
-                    se = Osteology_se, 5, nrow = 1,
-                    show_titles = FALSE, show_x_labels = TRUE); figI
-
-figJ <- create_plot(yearly_means, "N. of genes",
-                    mean = N_Genes_avg, 
-                    se = N_Genes_se, 5, nrow = 1,
-                    show_titles = FALSE, show_x_labels = TRUE); figJ
-
-figJ <- figJ + xlab("Year of description"); figJ
-
-fig <- cowplot::plot_grid(figH, figI, figJ,
-                          ncol = 1, nrow = 3, labels = "auto"); fig
-
-ggsave(paste0(getwd(), "/figures/FigureAuxAlternativeProxies.pdf"),
-       plot=fig, width=12, height=9, units="in", dpi = "print", cairo_pdf)
-
-# Number of authors
+## 3.3.) Number of authors & Number of countries ----
 figG <- create_plot(yearly_means, "N. of authors",
                     mean = N_authors_avg, 
                     se = N_authors_se, 5, nrow = 4,
@@ -874,69 +836,11 @@ figK <- create_plot(yearly_means, "N. of countries",
 
 fig <- plot_grid(figG, figK, align = "v", labels = "auto") 
 
-ggsave(paste0(getwd(), "/figures/FigureAux.Nofauthors.pdf"),
+ggsave(paste0(getwd(), "/figures/FigureS6.NofauthorsNofcountries.pdf"),
        plot=fig, width=8, height=10, units="in", dpi = "print", cairo_pdf)
 
-#ggsave(paste0(getwd(), "/figures/FigureAux.Nofcountries.pdf"),
-#       plot=figF, width=4, height=10, units="in", dpi = "print", cairo_pdf)
 
-# 4) Publication Robustness by Mammal Order ----
-# Get summary values for plotting
-# Select response, explanatory (year), and grouping variables
-names(mydata)
-new_dat <- mydata[ , c("SpeciesName","Order","N_evidences", 
-                       "N.Pages", "N.Specimens", "TaxaCompared", "N.Countries")]
-
-# Supondo que seu dataframe se chame df
-df_long <- new_dat %>%
-  pivot_longer(cols = c("N_evidences", "N.Pages", 
-                        "N.Specimens", "TaxaCompared", "N.Countries"),
-               names_to = "Variable",
-               values_to = "Value") %>%
-  group_by(Variable, Order) %>%
-  filter(!all(is.na(Value))) %>%
-  mutate(mediana = median(Value, na.rm = TRUE)) %>%
-  ungroup()
-
-plot_boxplot <- function(df_long, variable, title) {
-  plot <- df_long %>%
-    filter(Variable == variable) %>%
-    ggplot(aes(x = reorder(Order, -mediana), y = Value, fill = Order)) + 
-    #geom_violin(width = 1.4, , alpha=0.2) +
-    geom_boxplot(color="black", alpha=0.2) +
-    #geom_jitter(color="gray", size=0.4, alpha=0.9) +
-    coord_flip() +
-    theme_ipsum() +
-    theme(
-      legend.position = "none",
-      plot.title = element_text(size = 11),
-      axis.text.x = element_text(hjust = 1),
-      panel.grid = element_blank(),  
-      panel.background = element_blank(),  
-      axis.ticks = element_blank()  
-    ) + 
-    ggtitle(title) +
-    xlab("") + 
-    ylab("")
-}
-
-figA <- plot_boxplot(df_long, "N_evidences", "N. of evidence"); figA
-figB <- plot_boxplot(df_long, "N.Pages", "N. of pages"); figB
-figC <- plot_boxplot(df_long, "N.Specimens", "N. of specimens"); figC
-figD <- plot_boxplot(df_long, "TaxaCompared", "N. of taxa compared"); figD
-figE <- plot_boxplot(df_long, "N.Countries", "N. of countries involved"); figE
-
-# Arrange plots in a grid
-fig <- ggpubr::ggarrange(figA, figB, figC, figD, figE,
-                         ncol = 2, nrow = 3, labels = "auto", 
-                         font.label = list(size = 12,color = "black"),
-                         align = "hv"); fig
-
-# Export the figure:
-ggsave(paste0(getwd(), "/figures/Figure2.OrderRobustness.pdf"),
-       plot=fig, width=14, height=18, units="in", dpi = "print", cairo_pdf)
-
-# 5) Temporal trends in robustness of publications - based on GLMs.----
+# 4) Temporal trends in robustness of publications - based on GLMs.----
 load("Dataset.Rdata")
 rm(list=setdiff(ls(),c("data_all"))); gc() # clean workspace
 
@@ -964,7 +868,7 @@ mydata <- mydata %>%
           TaxonomicReview,
           Latitude.z)
 nrow(mydata)
-# n = 955 species with complete data on predictor variables
+# n = 953 species with complete data on predictor variables
 
 # Change taxonomic review to categorical
 mydata$TaxonomicReview <- ifelse(mydata$TaxonomicReview==1, yes = 'Yes', no = 'No')
@@ -979,21 +883,21 @@ vars <- mydata %>%
 usdm::vif(vars)
 
 #            Variables      VIF
-#             year.z 1.238891
-#      logBodyMass.z 1.108893
-#     logN_authors.z 1.518256
-#   logN_countries.z 1.402596
-# logGenusRichness.z 1.084934
-#         Latitude.z 1.059793
+#             year.z 1.240174
+#      logBodyMass.z 1.109102
+#     logN_authors.z 1.516637
+#   logN_countries.z 1.402120
+# logGenusRichness.z 1.084888
+#         Latitude.z 1.061842
 # Conclusion: keep all variables into the model as VIFs are low (< 2)
 
 # Sample size per response variable
 colSums( ! is.na(mydata[ , c("N_evidences", "N.Pages",
                              "N.Specimens", "TaxaCompared")]))
-# N_evidences = 939 species  
-# N.Pages = 955 species
-# N.Specimens = 935 species
-# TaxaCompared = 944 species
+# N_evidences = 937 species  
+# N.Pages = 950 species
+# N.Specimens = 933 species
+# TaxaCompared = 942 species
 
 # Create an empty data frame to store model results
 results <- data.frame()
@@ -1018,7 +922,6 @@ data_all %>% group_by(Order) %>%
 levels(as.factor(data_all$Order))
 
 ## All mammals ----
-
 #------------------------------------------------------------#
 # Model the number of evidence
 #------------------------------------------------------------#
@@ -1033,24 +936,24 @@ mod.evi2.gau <- glm(formula = form, data = mydata[ ! is.na(mydata$N_evidences) ,
 
 # Compare models using AIC
 AIC(mod.evi2.nb, mod.evi2.gau)
-# df      AIC
-#mod.evi2.nb   9 3476.105
-# mod.evi2.gau  9 2669.448
+#               df  AIC
+# mod.evi2.nb   9 3465.287
+# mod.evi2.gau  9 2640.324
 # The gaussian model is much better
 
 # Check model output
 summary(mod.evi2.gau)  
 # Coefficients:
-# year.z              0.2454003  0.0375290   6.539 1.02e-10 ***
-# logN_authors.z      0.0752479  0.0410586   1.833   0.0672 .  
-# logN_countries.z    0.0109410  0.0403249   0.271   0.7862    
-# logBodyMass.z      -0.2203159  0.0348598  -6.320 4.05e-10 ***
-# logGenusRichness.z -0.0005163  0.0350580  -0.015   0.9883    
-# TaxonomicReviewYes -0.1371804  0.0806173  -1.702   0.0892 .  
-# Latitude.z          0.0678477  0.0346483   1.958   0.0505 .
+# year.z              0.251506   0.037085   6.782 2.11e-11 ***
+# logN_authors.z      0.069766   0.040564   1.720  0.08578 .  
+# logN_countries.z    0.022998   0.039886   0.577  0.56436    
+# logBodyMass.z      -0.218847   0.034449  -6.353 3.31e-10 ***
+# logGenusRichness.z -0.001819   0.034624  -0.053  0.95812    
+# TaxonomicReviewYes -0.143416   0.079627  -1.801  0.07201 .  
+# Latitude.z          0.097125   0.034307   2.831  0.00474 **
 
 # Compute R2
-evidences_r2 <-performance::r2(mod.evi2.gau) # R2: 0.133
+evidences_r2 <-performance::r2(mod.evi2.gau) # R2: 0.14
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.evi2.gau, "N. evidence II"))
@@ -1073,18 +976,17 @@ mod.pages <- glm(formula = form, family = 'gaussian', data = mydata[ !is.na(myda
 
 # Check results
 summary(mod.pages) 
-
 # Coefficients:
-# year.z              0.040579   0.004267   9.510   <2e-16 ***
-# logN_authors.z      0.221876   0.004705  47.158   <2e-16 ***
-# logN_countries.z   -0.075495   0.004605 -16.394   <2e-16 ***
-# logBodyMass.z      -0.009508   0.003967  -2.397   0.0167 *  
-# logGenusRichness.z  0.004460   0.004027   1.108   0.2683    
-# TaxonomicReviewYes -0.019024   0.009168  -2.075   0.0383 *  
-# Latitude.z         -0.003397   0.003935  -0.863   0.3881  
+# year.z              0.041183   0.012188   3.379 0.000757 ***
+# logN_authors.z     -0.025071   0.013388  -1.873 0.061429 .  
+# logN_countries.z   -0.030842   0.013126  -2.350 0.018994 *  
+# logBodyMass.z      -0.045297   0.011335  -3.996 6.94e-05 ***
+# logGenusRichness.z -0.062015   0.011446  -5.418 7.66e-08 ***
+# TaxonomicReviewYes -0.070879   0.026063  -2.720 0.006658 ** 
+# Latitude.z         -0.002173   0.011245  -0.193 0.846827   
 
 # Compute R2
-pages_r2 <- performance::r2(mod.pages) # R2: 0.856
+pages_r2 <- performance::r2(mod.pages) # R2: 0.067
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.pages, "N. pages"))
@@ -1108,13 +1010,13 @@ mod.ts <- glm.nb(formula = form, data = mydata[ !is.na(mydata$N.Specimens) , ])
 summary(mod.ts) 
 
 # Coefficients:
-# year.z              0.13627    0.04544   2.999  0.00271 ** 
-# logN_authors.z     -0.06709    0.05003  -1.341  0.17994    
-# logN_countries.z   -0.08680    0.04909  -1.768  0.07704 .  
-# logBodyMass.z      -0.04028    0.04306  -0.935  0.34962    
-# logGenusRichness.z  0.08446    0.04240   1.992  0.04635 *  
-# TaxonomicReviewYes  0.13288    0.09723   1.367  0.17171    
-# Latitude.z         -0.05009    0.04218  -1.188  0.23501   
+# year.z              0.13804    0.04534   3.045  0.00233 ** 
+# logN_authors.z     -0.06891    0.04991  -1.381  0.16737    
+# logN_countries.z   -0.08504    0.04902  -1.735  0.08278 .  
+# logBodyMass.z      -0.03952    0.04296  -0.920  0.35768    
+# logGenusRichness.z  0.08391    0.04228   1.985  0.04718 *  
+# TaxonomicReviewYes  0.13064    0.09696   1.347  0.17786    
+# Latitude.z         -0.04690    0.04216  -1.112  0.26596   
 
 # Get R2
 nspecimens_r2 <- performance::r2(mod.ts) # Nagelkerke's R2: 0.0444
@@ -1141,16 +1043,16 @@ mod.tcom <- glm.nb(formula = form, data = mydata[ !is.na(mydata$TaxaCompared) , 
 summary(mod.tcom) 
 
 # Coefficients:
-#year.z              0.11140    0.03137   3.551 0.000383 ***
-#logN_authors.z      0.12308    0.03316   3.712 0.000206 ***
-#logN_countries.z    0.06533    0.03339   1.957 0.050378 .  
-#logBodyMass.z       0.01663    0.02915   0.570 0.568444    
-#logGenusRichness.z  0.16949    0.02809   6.034  1.6e-09 ***
-#TaxonomicReviewYes  0.11460    0.06658   1.721 0.085232 .  
-#Latitude.z         -0.04453    0.02911  -1.530 0.126058  
+# year.z              0.09661    0.02912   3.318 0.000907 ***
+# logN_authors.z      0.11873    0.03069   3.868 0.000110 ***
+# logN_countries.z    0.06254    0.03102   2.016 0.043820 *  
+# logBodyMass.z       0.02113    0.02705   0.781 0.434676    
+# logGenusRichness.z  0.16378    0.02601   6.297 3.03e-10 ***
+# TaxonomicReviewYes  0.11266    0.06178   1.824 0.068212 .  
+# Latitude.z         -0.02320    0.02700  -0.859 0.390218 
 
 # Get R2
-taxacompared_r2 <- performance::r2(mod.tcom) # Nagelkerke's R2: 0.164
+taxacompared_r2 <- performance::r2(mod.tcom) # Nagelkerke's R2: 0.155
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.tcom, "N. taxa compared"))
@@ -1217,24 +1119,24 @@ mod.evi2.gau.without <- glm(formula = form,
 
 # Compare models using AIC
 AIC(mod.evi2.nb.without, mod.evi2.gau.without)
-#df       AIC
-#mod.evi2.nb.without   9 1110.2058
-#mod.evi2.gau.without  9  859.2945
+#                       df   AIC
+# mod.evi2.nb.without   9 1110.1181
+# mod.evi2.gau.without  9  857.0781
 # The gaussian model is much better
 
 # Check model output
 summary(mod.evi2.gau.without)  
 # Coefficients:
-# year.z              0.22416    0.06418   3.492 0.000551 ***
-# logN_authors.z      0.09149    0.05508   1.661 0.097769 .  
-# logN_countries.z   -0.05794    0.07501  -0.772 0.440451    
-# logBodyMass.z      -0.22852    0.05293  -4.317 2.15e-05 ***
-# logGenusRichness.z  0.10182    0.04533   2.246 0.025411 *  
-# TaxonomicReviewYes -0.06103    0.14155  -0.431 0.666682    
-# Latitude.z          0.05155    0.05970   0.864 0.388499  
+# year.z              0.22579    0.06395   3.531  0.00048 ***
+# logN_authors.z      0.08935    0.05488   1.628  0.10459    
+# logN_countries.z   -0.05192    0.07474  -0.695  0.48782    
+# logBodyMass.z      -0.22570    0.05274  -4.280 2.53e-05 ***
+# logGenusRichness.z  0.10821    0.04516   2.396  0.01720 *  
+# TaxonomicReviewYes -0.07112    0.14103  -0.504  0.61445    
+# Latitude.z          0.10521    0.05948   1.769  0.07794 . 
 
 # Compute R2
-evidences_r2 <- performance::r2(mod.evi2.gau.without) # R2: 0.235
+evidences_r2 <- performance::r2(mod.evi2.gau.without) # R2: 0.24
 
 # Extract and store model results
 results <- bind_rows(results,
@@ -1262,13 +1164,13 @@ summary(mod.pages.without)
 
 # Results:
 #Coefficients:
-#year.z              0.043795   0.008455   5.179 4.07e-07 ***
-#logN_authors.z      0.169158   0.007278  23.242  < 2e-16 ***
-#logN_countries.z   -0.114241   0.009873 -11.571  < 2e-16 ***
-#logBodyMass.z       0.006637   0.006927   0.958    0.339    
-#logGenusRichness.z  0.005162   0.005981   0.863    0.389    
-#TaxonomicReviewYes -0.008505   0.018541  -0.459    0.647    
-#Latitude.z         -0.010474   0.007752  -1.351    0.178  
+# year.z              0.06633    0.01902   3.488 0.000559 ***
+# logN_authors.z     -0.04975    0.01637  -3.039 0.002582 ** 
+# logN_countries.z   -0.07537    0.02225  -3.388 0.000799 ***
+# logBodyMass.z      -0.03568    0.01571  -2.271 0.023870 *  
+# logGenusRichness.z -0.04887    0.01346  -3.630 0.000333 ***
+# TaxonomicReviewYes -0.17025    0.04174  -4.079 5.79e-05 ***
+# Latitude.z          0.02626    0.01752   1.498 0.135103   
 
 # Compute R2
 pages_r2 <- performance::r2(mod.pages.without) # R2: 0.85
@@ -1295,13 +1197,13 @@ mod.ts.without <- glm.nb(formula = form, data = mammals_without[ !is.na(mammals_
 summary(mod.ts.without) 
 
 # Results
-#year.z              0.31722    0.07189   4.412 1.02e-05 ***
-#logN_authors.z     -0.19653    0.06269  -3.135 0.001719 ** 
-#logN_countries.z   -0.19990    0.08497  -2.353 0.018643 *  
-#logBodyMass.z       0.03009    0.06097   0.494 0.621642    
-#logGenusRichness.z  0.24954    0.04993   4.998 5.79e-07 ***
-#TaxonomicReviewYes  0.02966    0.15816   0.188 0.851228    
-#Latitude.z          0.25629    0.06660   3.848 0.000119 ***
+# year.z              0.31722    0.07189   4.412 1.02e-05 ***
+# logN_authors.z     -0.19653    0.06269  -3.135 0.001719 ** 
+# logN_countries.z   -0.19990    0.08497  -2.353 0.018643 *  
+# logBodyMass.z       0.03009    0.06097   0.494 0.621642    
+# logGenusRichness.z  0.24954    0.04993   4.998 5.79e-07 ***
+# TaxonomicReviewYes  0.02966    0.15816   0.188 0.851228    
+# Latitude.z          0.25629    0.06660   3.848 0.000119 ***
 
 # Get R2
 nspecimens_r2 <- performance::r2(mod.ts.without) # Nagelkerke's R2: 0.31
@@ -1327,16 +1229,17 @@ mod.tcom.without <- glm.nb(formula = form, data = mammals_without[ !is.na(mammal
 summary(mod.tcom.without) 
 
 # Results
-# year.z              0.09443    0.05272   1.791  0.07326 .  
-# logN_authors.z      0.12577    0.04301   2.924  0.00345 ** 
-# logN_countries.z    0.05039    0.06094   0.827  0.40831    
-# logBodyMass.z       0.07295    0.04370   1.669  0.09502 .  
-# logGenusRichness.z  0.18345    0.03591   5.108 3.25e-07 ***
-# TaxonomicReviewYes  0.15964    0.11500   1.388  0.16507    
-# Latitude.z          0.03066    0.04892   0.627  0.53081   
+# year.z              0.10185    0.04989   2.041  0.04122 *  
+# logN_authors.z      0.11530    0.04057   2.842  0.00448 ** 
+# logN_countries.z    0.04316    0.05765   0.749  0.45409    
+# logBodyMass.z       0.06220    0.04145   1.501  0.13346    
+# logGenusRichness.z  0.17574    0.03392   5.182  2.2e-07 ***
+# TaxonomicReviewYes  0.16620    0.10873   1.529  0.12637    
+# Latitude.z          0.05147    0.04601   1.119  0.26326    
 
 # Get R2
-taxacompared_r2 <- performance::r2(mod.tcom.without) # Nagelkerke's R2: 0.252
+taxacompared_r2 <- performance::r2(
+  mod.tcom.without) # Nagelkerke's R2: 0.265
 
 # Extract and store model results
 results <- bind_rows(results, 
@@ -1383,7 +1286,7 @@ e1071::skewness(rodents$SppRichPerGenus, na.rm = T); e1071::kurtosis(rodents$Spp
 #rodents$countries_per_author <- log10(rodents$countries_per_author)
 #rodents$SppRichPerGenus <- log10(rodents$SppRichPerGenus + 1)
 nrow(rodents)
-# n = 392 species with complete data on predictor variables
+# n = 390 species with complete data on predictor variables
 
 # Check multicolinearity among predictor variables
 vars <- rodents %>%
@@ -1391,21 +1294,21 @@ vars <- rodents %>%
   as.data.frame()
 # rodar VIF
 usdm::vif(vars)
-#Variables      VIF
-#             year.z 1.327637
-#      logBodyMass.z 1.005924
-#     logN_authors.z 2.049698
-#   logN_countries.z 1.822412
-# logGenusRichness.z 1.045736
-#         Latitude.z 1.059304
+#         Variables      VIF
+#             year.z 1.331465
+#      logBodyMass.z 1.005668
+#     logN_authors.z 1.815744
+#   logN_countries.z 1.543759
+# logGenusRichness.z 1.066786
+#         Latitude.z 1.060116
 
 # Sample size per response variable
 colSums( ! is.na(rodents[ , c("N_evidences", "N.Pages",
                               "N.Specimens", "TaxaCompared")]))
-# N_evidences = 383 species  
-# N.Pages = 392 species
-# N.Specimens = 386 species
-# TaxaCompared = 389 species
+# N_evidences = 381 species  
+# N.Pages = 388 species
+# N.Specimens = 384 species
+# TaxaCompared = 387 species
 
 # Create an empty data frame to store model results
 results <- data.frame()
@@ -1425,22 +1328,22 @@ mod.evi2.gau <- glm(formula = form, data = rodents[ ! is.na(rodents$N_evidences)
 # Compare models using AIC
 AIC(mod.evi2.nb, mod.evi2.gau)
 #df      AIC
-#mod.evi2.nb   9 1440.886
-#mod.evi2.gau  9 1065.159
+#mod.evi2.nb   9 1429.351
+#mod.evi2.gau  9 1030.825
 
 # Check model output
 summary(mod.evi2.gau)  
 # Results
-# year.z              0.17915    0.05581   3.210  0.00144 ** 
-# logN_authors.z      0.22303    0.09002   2.478  0.01366 *  
-# logN_countries.z    0.15886    0.05819   2.730  0.00663 ** 
-# logBodyMass.z      -0.05119    0.07470  -0.685  0.49359    
-# logGenusRichness.z  0.36065    0.12527   2.879  0.00422 ** 
-# TaxonomicReviewYes -0.20130    0.12245  -1.644  0.10103    
-# Latitude.z          0.08643    0.05352   1.615  0.10722  
+# year.z              0.19896    0.05386   3.694 0.000254 ***
+# logN_authors.z      0.19059    0.08687   2.194 0.028854 *  
+# logN_countries.z    0.17782    0.05613   3.168 0.001662 ** 
+# logBodyMass.z      -0.05269    0.07213  -0.730 0.465558    
+# logGenusRichness.z  0.34573    0.12065   2.866 0.004399 ** 
+# TaxonomicReviewYes -0.21036    0.11792  -1.784 0.075254 .  
+# Latitude.z          0.11801    0.05184   2.276 0.023400 *   
 
 # Compute R2
-evidences_r2 <- performance::r2(mod.evi2.gau) # R2: 0.122
+evidences_r2 <- performance::r2(mod.evi2.gau) # R2: 0.139
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.evi2.gau,
@@ -1463,16 +1366,16 @@ mod.pages <- glm(formula = form, family = 'gaussian', data = rodents[ !is.na(rod
 
 # Check results
 summary(mod.pages) 
-#year.z              0.022335   0.004803   4.651 4.56e-06 ***
-#logN_authors.z      0.305766   0.007838  39.012  < 2e-16 ***
-#logN_countries.z   -0.050318   0.005074  -9.917  < 2e-16 ***
-#logBodyMass.z      -0.001375   0.006521  -0.211   0.8332    
-#logGenusRichness.z  0.003649   0.010960   0.333   0.7393    
-#TaxonomicReviewYes -0.025338   0.010603  -2.390   0.0173 *  
-#Latitude.z         -0.010100   0.004625  -2.184   0.0296 *
+# year.z              0.021224   0.018615   1.140   0.2549    
+# logN_authors.z     -0.025383   0.030174  -0.841   0.4008    
+# logN_countries.z   -0.009948   0.019468  -0.511   0.6097    
+# logBodyMass.z      -0.010087   0.025062  -0.402   0.6876    
+# logGenusRichness.z -0.070482   0.041907  -1.682   0.0934 .  
+# TaxonomicReviewYes -0.046496   0.040542  -1.147   0.2522    
+# Latitude.z         -0.037028   0.017870  -2.072   0.0389 *
 
 # Compute R2
-pages_r2 <- performance::r2(mod.pages) # R2: 0.91
+pages_r2 <- performance::r2(mod.pages) # R2: 0.026
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.pages, "N. pages"))
@@ -1494,13 +1397,13 @@ mod.ts <- glm.nb(formula = form, data = rodents[ !is.na(rodents$N.Specimens) , ]
 # Check results
 summary(mod.ts) 
 #                     Estimate Std. Error z value Pr(>|z|)    
-#year.z              0.02324    0.06975   0.333  0.73897    
-#logN_authors.z      0.32984    0.11314   2.915  0.00355 ** 
-#logN_countries.z    0.11092    0.07327   1.514  0.13006    
-#logBodyMass.z      -0.12579    0.09522  -1.321  0.18650    
-#logGenusRichness.z  0.30436    0.15947   1.909  0.05631 .  
-#TaxonomicReviewYes  0.03932    0.15362   0.256  0.79798    
-#Latitude.z         -0.12402    0.06712  -1.848  0.06466 .
+# year.z              0.02674    0.06939   0.385  0.70000    
+# logN_authors.z      0.32244    0.11257   2.864  0.00418 ** 
+# logN_countries.z    0.11426    0.07287   1.568  0.11691    
+# logBodyMass.z      -0.12600    0.09480  -1.329  0.18383    
+# logGenusRichness.z  0.29924    0.15836   1.890  0.05880 .  
+# TaxonomicReviewYes  0.03842    0.15255   0.252  0.80115    
+# Latitude.z         -0.11540    0.06702  -1.722  0.08510 .  
 
 # Get R2
 nspecimens_r2 <- performance::r2(mod.ts) # 0.06
@@ -1526,16 +1429,16 @@ mod.tcom <- glm.nb(formula = form, data = rodents[ !is.na(rodents$TaxaCompared) 
 summary(mod.tcom) 
 
 # Results
-# year.z              0.06935    0.05020   1.382  0.16711    
-# logN_authors.z      0.07628    0.08099   0.942  0.34622    
-# logN_countries.z    0.09179    0.05198   1.766  0.07743 .  
-# logBodyMass.z      -0.04742    0.06956  -0.682  0.49539    
-# logGenusRichness.z  0.68166    0.11090   6.146 7.92e-10 ***
-# TaxonomicReviewYes  0.10295    0.10945   0.941  0.34690    
-# Latitude.z         -0.13783    0.04864  -2.833  0.00461 **  
+# year.z              0.03389    0.04518   0.750   0.4532    
+# logN_authors.z      0.12038    0.07268   1.656   0.0977 .  
+# logN_countries.z    0.09701    0.04670   2.078   0.0378 *  
+# logBodyMass.z       0.01920    0.06181   0.311   0.7562    
+# logGenusRichness.z  0.66167    0.09915   6.674  2.5e-11 ***
+# TaxonomicReviewYes  0.12897    0.09811   1.315   0.1887    
+# Latitude.z         -0.10464    0.04385  -2.386   0.0170 *
 
 # Get R2
-taxacompared_r2 <- performance::r2(mod.tcom) # R2: 0.214
+taxacompared_r2 <- performance::r2(mod.tcom) # R2: 0.24
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.tcom, "N. taxa compared"))
@@ -1585,7 +1488,7 @@ vars <- bats %>%
   as.data.frame()
 # rodar VIF
 usdm::vif(vars)
-# Variables      VIF
+#       Variables      VIF
 #             year.z 1.325419
 #      logBodyMass.z 1.047929
 #     logN_authors.z 1.529432
@@ -1646,7 +1549,6 @@ save(mod.evi2.gau, file = 'model_outputs/mod.evi.II.bats.Rdata')
 #------------------------------------------------------------#
 # Number of pages
 #------------------------------------------------------------#
-
 # Set a full model formula
 bats$LogN.Pages <- log10(bats$N.Pages) # transform it 'out' of the model, otherwise there will be an error when calculating R2
 form <- as.formula(LogN.Pages ~ 
@@ -1660,16 +1562,16 @@ mod.pages <- glm(formula = form, family = 'gaussian', data = bats[ !is.na(bats$N
 summary(mod.pages) 
 
 # Results:
-# year.z              0.029373   0.007883   3.726 0.000241 ***
-# logN_authors.z      0.294118   0.009223  31.891  < 2e-16 ***
-# logN_countries.z   -0.047947   0.007867  -6.094 4.23e-09 ***
-# logBodyMass.z      -0.017311   0.008553  -2.024 0.044064 *  
-# logGenusRichness.z  0.006886   0.007768   0.886 0.376251    
-# TaxonomicReviewYes -0.022213   0.014175  -1.567 0.118398    
-# Latitude.z          0.014953   0.006396   2.338 0.020207 *
+# year.z             -0.008954   0.028260  -0.317 0.751635    
+# logN_authors.z      0.111116   0.033063   3.361 0.000902 ***
+# logN_countries.z   -0.021644   0.028204  -0.767 0.443590    
+# logBodyMass.z       0.010977   0.030664   0.358 0.720659    
+# logGenusRichness.z -0.052595   0.027848  -1.889 0.060122 .  
+# TaxonomicReviewYes  0.016058   0.050818   0.316 0.752279    
+# Latitude.z          0.019715   0.022931   0.860 0.390757 
 
 # Compute R2
-pages_r2 <- performance::r2(mod.pages) # R2: 0.89
+pages_r2 <- performance::r2(mod.pages) # R2: 0.08
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.pages, 
@@ -1694,14 +1596,13 @@ mod.ts <- glm.nb(formula = form, data = bats[ !is.na(bats$N.Specimens) , ])
 summary(mod.ts) 
 
 # Results
-#                     Estimate Std. Error z value Pr(>|z|)    
 # year.z              0.01008    0.10201   0.099 0.921304    
 # logN_authors.z     -0.03936    0.11938  -0.330 0.741615    
 # logN_countries.z   -0.38067    0.10227  -3.722 0.000197 ***
 # logBodyMass.z       0.27122    0.10929   2.482 0.013078 *  
 # logGenusRichness.z -0.15227    0.10077  -1.511 0.130768    
 # TaxonomicReviewYes  0.59945    0.18162   3.301 0.000965 ***
-# Latitude.z         -0.17617    0.08334  -2.114 0.034526 *  
+# Latitude.z         -0.17617    0.08334  -2.114 0.034526 *    
 
 # Get R2
 nspecimens_r2 <- performance::r2(mod.ts) # 0.169
@@ -1729,16 +1630,16 @@ summary(mod.tcom)
 
 # Results
 #                     Estimate Std. Error z value Pr(>|z|)    
-#year.z              0.187784   0.065923   2.849  0.00439 ** 
-#logN_authors.z      0.021281   0.074444   0.286  0.77498    
-#logN_countries.z   -0.036790   0.064696  -0.569  0.56959    
-#logBodyMass.z      -0.009993   0.070969  -0.141  0.88802    
-#logGenusRichness.z  0.142069   0.062190   2.284  0.02235 *  
-#TaxonomicReviewYes -0.117125   0.117704  -0.995  0.31969    
-#Latitude.z         -0.027085   0.052293  -0.518  0.60449  
+# year.z              0.184023   0.062736   2.933  0.00335 ** 
+# logN_authors.z      0.024221   0.070716   0.343  0.73196    
+# logN_countries.z   -0.028071   0.061513  -0.456  0.64815    
+# logBodyMass.z      -0.007077   0.067476  -0.105  0.91647    
+# logGenusRichness.z  0.131909   0.059096   2.232  0.02561 *  
+# TaxonomicReviewYes -0.133980   0.112184  -1.194  0.23236    
+# Latitude.z         -0.022459   0.049692  -0.452  0.65130  
 
 # Get R2
-taxacompared_r2 <- performance::r2(mod.tcom) # R2: 0.123
+taxacompared_r2 <- performance::r2(mod.tcom) # R2: 0.129
 
 # Extract and store model results
 results <- bind_rows(results, extract_model_results(mod.tcom, 
@@ -1766,7 +1667,7 @@ fwrite(results_r2, file = 'model_outputs/r2_bats.csv')
 # Clean workspace
 rm(list = ls()); gc()
 
-# 6) Create a plot with model coefficients and CI intervals.----
+# 5) Create a plot with model coefficients and CI intervals.----
 # Load
 #rm(list = ls()); gc()
 results_all <- fread('model_outputs/model_outs.csv')
@@ -1878,7 +1779,7 @@ results_r2 <- rbind(r2_all, r2_without, r2_rodents, r2_bats) %>%
       "N. pages",
       "N. evidence"
     )))
-View(results_r2)
+
 MyColors <- c("#8e0152", "#bf812d", "#4d4d4d", "#d6604d")
 names(MyColors) <- c("N. evidence","N. pages","N. specimens","N. taxa compared")
 # Crie um dataframe para os pontos do eixo Y
@@ -1890,7 +1791,7 @@ inset_plot <- ggplot(results_r2, aes(x = name, y = value, fill = group)) +
            color = "black", size = 0.2) +
   # Ajuste de escala para o eixo X após o coord_flip
   scale_x_discrete(expand = c(0, 0)) +  # Evita o espaçamento extra
-  scale_y_continuous(breaks = seq(0, 0.9, by = 0.30), limits = c(0, 1), expand = c(0, 0)) +  # Definindo limite superior no eixo Y (horizontal)
+  scale_y_continuous(breaks = seq(0, 0.4, by = 0.1), limits = c(0, 0.4), expand = c(0, 0)) +  # Definindo limite superior no eixo Y (horizontal)
   scale_fill_manual(values = background_colors, guide = "none") +
   
   # Layout
@@ -1919,7 +1820,7 @@ inset_plot <- ggplot(results_r2, aes(x = name, y = value, fill = group)) +
 ggsave(paste0(getwd(), "/figures/Figure.aux2.pdf"), plot=inset_plot,
        width=5, height=6, units="in", dpi = 'print', cairo_pdf)
 
-# 7) Check phylogenetic correlation in model residuals.----
+# 6) Check phylogenetic correlation in model residuals.----
 # Load additional packages
 needed_packages <- c('foreach', # for looping construct (package version 1.5.2)
                      'doParallel', # for parallel computing (v. 1.0.17)
@@ -1940,15 +1841,16 @@ load("Dataset.Rdata")
 
 data <- data_all %>%
   drop_na(Year, Log10BodyMass_g, N_authors, N.Countries, 
-          SppRichPerGenus, TaxonomicReview, Latitude) # 955 linhas
+          SppRichPerGenus, TaxonomicReview, Latitude) # 953 linhas
 
 # Sample size per response variable
-colSums( ! is.na(data[ , c("N_evidences", "N.Pages", "N.Specimens", "TaxaCompared")]))
-# N_evidences = 939 species  
-# N.Pages = 955 species
-# N.Specimens = 935 species
-# TaxaCompared = 944 species
-# OKAY; match the numbers on modelling procedures (line 982)
+colSums( ! is.na(data[ , c("N_evidences", "N.Pages", 
+                           "N.Specimens", "TaxaCompared")]))
+# N_evidences = 937 species  
+# N.Pages = 950 species
+# N.Specimens = 933 species
+# TaxaCompared = 942 species
+# OKAY; match the numbers on modelling procedures (line 910)
 
 # Make sure that all species in the tree are also in the main dataset, and vice-versa
 # First, let's standardize names and then use fuzzy logic to identify potential small
@@ -2004,12 +1906,7 @@ data <- as.data.frame(data)
 rownames(data) <- data[ , 'SpeciesName']
 
 # Load model residuals, then create distinct datasets for each response to account for NAs
-# evidence I
-#load("model_outputs/mod.evi.I.Rdata") ; evi_residsI <- resid(mod.evi.nb)
-#load("model_outputs/mod.evi.I.bats.Rdata") ; evi_residsI_bats <- resid(mod.evi.nb)
-#load("model_outputs/mod.evi.I.rodents.Rdata") ; evi_residsI_rodents <- resid(mod.evi.gau)
-
-# evidence II
+# evidence 
 load("model_outputs/mod.evi.II.Rdata") ; evi_residsII <- resid(mod.evi2.gau)
 load("model_outputs/mod.evi.II.without.Rdata") ; evi_residsII_without <- resid(mod.evi2.gau.without)
 load("model_outputs/mod.evi.II.bats.Rdata") ; evi_residsII_bats <- resid(mod.evi2.gau)
@@ -3139,7 +3036,7 @@ AvgPhyCorr_tcom_rodents<-PhyCorr_tcom_rodents[, .(Distance=mean(dist.class, na.r
 save(PhyCorr_tcom_rodents, AvgPhyCorr_tcom_rodents, file="PhyloCorr/PhyloCorr_tcom_rodents.Rdata")
 rm(tcom_dat_rodents, PhyCorr_tcom_rodents, AvgPhyCorr_tcom_rodents) # clean workspace
 
-# 8) Make phylogenetic correlograms.----
+# 7) Make phylogenetic correlograms ----
 # All mammals
 load('PhyloCorr/PhyloCorr_evi_II.Rdata')
 load('PhyloCorr/PhyloCorr_ts.Rdata')
@@ -3224,7 +3121,7 @@ ggsave(paste0(getwd(), "/figures/FigureS2.PhyloCorrelogram_rodents.pdf"),
 
 rm(list = ls()); gc() # clean workspace and garbage collection
 
-# 9) Explore temporal trends in the use of molecular data on Mammal description.----
+# 8) Explore temporal trends in the use of molecular data on Mammal description ----
 # Load dataset
 #mydata <- fread("Dataset.csv", na.strings = '')
 load("Dataset.Rdata")
@@ -3577,7 +3474,8 @@ SppCountries <- mydata %>%
                                   "no",
                                   "Three or more countries",
                                   "Two countries",
-                                  "One country")))
+                                  "One country"))) %>%
+  drop_na(Molecular)
 nrow(SppCountries)
 # Spp richness
 SppRichness <- mydata %>%
@@ -3630,7 +3528,8 @@ SppCountriesTaxonomic <- mydata %>%
                                   "no",
                                   "Three or more countries",
                                   "Two countries",
-                                  "One country")))
+                                  "One country"))) %>%
+  drop_na(TaxonomicReview)
 
 m <- SppCountriesTaxonomic %>%
   drop_na(TaxonomicReview) %>%
@@ -3675,15 +3574,9 @@ fig <- ggpubr::ggarrange(p, m,
 ggsave(paste0(getwd(), "/figures/Figure4.PropMolecularByTaxa.pdf"),
        plot=fig, width=11, height=6, units="in", dpi = "print", cairo_pdf)
 
-#ggsave(paste0(getwd(), "/figures/Figure4.PropMolecularByTaxa.jpg"),
-#       plot=fig, width=11, height=6, units="in", dpi = "print")
-
-#ggsave(paste0(getwd(), "/figures/Figure4.PropMolecularByTaxa.tiff"), 
-#       plot=fig, width=11, height=6, units="in", dpi = "print")
-
 rm(list = ls()); gc()
 
-# 10) Relationship international description vs. molecular & taxonomic review.----
+# 9) Relationship international description vs. molecular & taxonomic review ----
 load("Dataset.Rdata")
 
 mydata <- data_all
@@ -3734,7 +3627,7 @@ mydata_expanded <- mydata %>%
   mutate(razao_int = N.Countries/N_authors) # variavel nova
 
 
-## 10.1 Test difference between between taxonomy practices type ----
+## 9.1) Test difference between between taxonomy practices type ----
 # Teste Kruskal-Wallis
 res.aov <- mydata_expanded %>%
   rstatix::kruskal_test(razao_int ~ TypeOfStudy) %>%
@@ -3789,7 +3682,7 @@ pwc_rodentia <- mydata_expanded %>%
                      detailed = TRUE) 
 pwc_rodentia[,c("group1", "group2","estimate", "p.adj", "p.adj.signif")]
 
-## 10.2 Violinplot plots ----
+## 9.2) Violinplot plots ----
 plot <- mydata_expanded %>%
   mutate(TypeOfStudy = factor(TypeOfStudy,
                               levels = c("Molecular",
@@ -4051,7 +3944,7 @@ plot_final <- plot_grid(
 ggsave(paste0(getwd(), "/figures/FigureS2.Scatterplot_nauthors_ncountries.pdf"),
        plot=plot_grid, width=9, height=6, units="in", dpi = "print", cairo_pdf)
 
-## 10.3 Collector and authorship ----
+## 9.3) Collector and authorship ----
 # A proporcao de coletor participando de artigos, aumenta ao longo do tempo?
 load("Dataset.RData")
 
