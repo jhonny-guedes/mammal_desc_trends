@@ -392,7 +392,10 @@ points_sf <- points_sf %>% left_join(classification, by = "Order")
 MyMap2 <- ggplot2::ggplot() +
   
   # Add polygon boundaries for the wwf realms:
-  geom_sf(data = wwf_realms, aes(fill=wwf_realm), colour="black", size=0.1) +
+  geom_sf(data = wwf_realms, aes(fill=wwf_realm), colour="black", size=0.1,
+          show.legend = FALSE) +
+  scale_fill_manual(values = MyBiogeoColors, name = NULL) +
+  ggnewscale::new_scale_fill() +  # <-- permite nova escala de 'fill' para os pontos
   geom_sf(data=world_limit, fill=NA, colour="black", linewidth=0.3)+
   
   # Add type-localities of species described:
@@ -400,7 +403,6 @@ MyMap2 <- ggplot2::ggplot() +
   geom_sf(data = points_sf, aes(fill = NewOrder), color = "black", size = 1.3, shape = 21, alpha = 0.7) +  # Inner color based on NewOrder
   
   # Inform the filling colors:
-  #scale_fill_manual(values = c(MyBiogeoColors, MyColors)) +
   scale_fill_manual(values = MyColors, name = NULL) +
   # Specify other aesthetics:
   theme(axis.line = element_blank(),
@@ -625,7 +627,6 @@ create_data <- function(data) {
            N_authors_se = N_authors_sd / sqrt (N_authors_nspp),
            Morphometrics_se = Morphometrics_sd / sqrt (Morphometrics_nspp),
            Osteology_se = Osteology_sd / sqrt (Osteology_nspp),
-           N_Genes_se = N_Genes_sd / sqrt (N_Genes_nspp),
            R_inter_se = R_inter_sd/ sqrt(R_inter_nspp))
   return(yearly_means)
 }
@@ -696,6 +697,7 @@ create_plot <- function(data, y_label, mean, se, total_tests, nrow = nrow,
       axis.title = element_text(size = 10, face = "bold"),
       axis.line = element_line(colour = "black"),
       axis.ticks.x = element_line(),  # Garante ticks visíveis
+      axis.ticks.y = element_line(),
       axis.text = element_text(size = 8, colour = "black"),
       axis.text.x = element_text(
         angle = 0, 
@@ -1745,7 +1747,7 @@ p <- ggplot(results, aes(x = response, y = estimate, shape = response, ymin = lo
     axis.text = element_text(size = 10),
     axis.line = element_line(colour = "black"),
     axis.ticks.y.left = element_blank(),
-    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
     axis.text.y = element_blank(),
     plot.background = element_rect(fill = "white"),
     strip.background = element_blank(),
@@ -3102,11 +3104,13 @@ MyCorrelogram <- ggplot(Corr_list, aes(x = Distance, y = MoranI_coef, colour = R
         panel.grid.major = element_blank(), # remove major gridlines
         panel.background = element_blank(), # white background
         axis.line = element_line(colour="black"), # axis lines aesthetitcs
-        axis.text.y = element_text(hjust=0.5, vjust=0.5, angle=0, size=6),
-        axis.text.x = element_text(hjust=0.5, vjust=0.5, angle=0, size=6),
+        axis.text.y = element_text(hjust=0.5, vjust=0.5,
+                                   colour="black", angle=0, size=10),
+        axis.text.x = element_text(hjust=0.5, vjust=0.5,
+                                   colour="black", angle=0, size=10),
         axis.ticks.y=element_blank(),
-        axis.title.y=element_text(size=8, colour="black", face="bold", margin=margin(t=0, r=5, b=0, l=0)), # margin between axis.title and axis.values
-        axis.title.x=element_text(size=8, colour="black", face="bold", margin=margin(t=5, r=0, b=0, l=0)), # margin between axis.title and axis.values
+        axis.title.y=element_text(size=12, colour="black", face="bold", margin=margin(t=0, r=5, b=0, l=0)), # margin between axis.title and axis.values
+        axis.title.x=element_text(size=12, colour="black", face="bold", margin=margin(t=5, r=0, b=0, l=0)), # margin between axis.title and axis.values
         legend.position=c(.6,.8),
         legend.title = element_blank(),
         legend.key = element_blank(),
@@ -3655,8 +3659,8 @@ posthoc_without[,c("group1", "group2","estimate", "p.adj", "p.adj.signif")]
 # Bats
 res.aov.bats <- mydata_expanded %>%
   filter(Order == "Chiroptera") %>%
-  rstatix::kruskal_test(razao_int ~ TypeOfStudy) #%>%
-  #mutate(p = ifelse(p < 0.001, "< 0.001", as.character(p)))
+  rstatix::kruskal_test(razao_int ~ TypeOfStudy) %>%
+  mutate(p = ifelse(p < 0.001, "< 0.001", as.character(p)))
 
 res.aov.bats
 
@@ -3697,7 +3701,7 @@ plot <- mydata_expanded %>%
     x = "",
     y = ""
   ) +
-  scale_y_continuous(limits = c(0,4), breaks = c(0,1,2,3,4), expand = expansion(add = c(0, .5))) +
+  scale_y_continuous(limits = c(0,3.2), breaks = c(0,1,2,3,4), expand = expansion(add = c(0, .5))) +
   theme_minimal() +
   theme(
     axis.title.y = element_text(size = 18, face = "bold"), 
@@ -3707,19 +3711,20 @@ plot <- mydata_expanded %>%
     axis.text.y = element_text(size = 12, color = "black"),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
-    axis.ticks = element_blank(),
+    axis.ticks.x = element_line(),  # Garante ticks visíveis
+    axis.ticks.y = element_line(),
     axis.line = element_line(color = "black")
   ) +
-  geom_text(aes(x = 1, y = 3.2, label = "a"), size = 4, family = "Arial", fontface = "plain") +  # "A" Molecular
-  geom_text(aes(x = 2, y = 3.2, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "B" Taxonomic Review 
+  geom_text(aes(x = 1, y = 2.7, label = "a"), size = 4, family = "Arial", fontface = "plain") +  # "A" Molecular
+  geom_text(aes(x = 2, y = 2.7, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "B" Taxonomic Review 
   geom_text(aes(x = 3, y = 3.2, label = "c"), size = 4, family = "Arial", fontface = "plain") +   # "C" Other evidences
   geom_text(
     data = res.aov,
     aes(
       x = 0.5, 
-      y = 4, 
+      y = 3.2, 
       label = paste(
-        "χ2 =",  round(statistic,2),
+        "\u03C7\u00B2 =",  round(statistic,2),
         "; df =", df, 
         "; Bonferroni p =", p)
     ),
@@ -3742,7 +3747,7 @@ plot_mammals_without <- mydata_expanded %>%
     x = "",
     y = ""
   ) +
-  scale_y_continuous(limits = c(0, 4), breaks = c(0, 1, 2, 3, 4), expand = expansion(add = c(0, .5))) +
+  scale_y_continuous(limits = c(0,3.2), breaks = c(0, 1, 2, 3, 4), expand = expansion(add = c(0, .5))) +
   theme_minimal() +
   theme(
     plot.margin=unit(c(t = 0, r = 0, b = 0, l = 0), "cm"),
@@ -3753,7 +3758,8 @@ plot_mammals_without <- mydata_expanded %>%
     axis.text.y = element_text(size = 12, color = "black"),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
-    axis.ticks = element_blank(),
+    axis.ticks.x = element_line(),  # Garante ticks visíveis
+    axis.ticks.y = element_line(),
     axis.line = element_line(color = "black")
   ) +
   geom_text(aes(x = 1, y = 2.2, label = "a"), size = 4, family = "Arial", fontface = "plain") +  # "A" Molecular
@@ -3763,7 +3769,7 @@ plot_mammals_without <- mydata_expanded %>%
     data = res.aov.without,
     aes(
       x = 0.5, 
-      y = 4, 
+      y = 3.2, 
       label = paste(
         "χ2 =",  round(statistic,2),
         "; df =", df, 
@@ -3787,7 +3793,7 @@ plot_bat <- mydata_expanded %>%
     x = "",
     y = ""
   ) +
-  scale_y_continuous(limits = c(0, 4), breaks = c(0,1,2,3,4), expand = expansion(add = c(0, .5))) +
+  scale_y_continuous(limits = c(0,2.2), breaks = c(0,1,2,3,4), expand = expansion(add = c(0, .5))) +
   theme_minimal() +
   theme(
     plot.margin=unit(c(t = 0, r = 0, b = 0, l = 0), "cm"),
@@ -3798,21 +3804,22 @@ plot_bat <- mydata_expanded %>%
     axis.text.y = element_text(size = 12, color = "black"),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
-    axis.ticks = element_blank(),
+    axis.ticks.x = element_line(),  # Garante ticks visíveis
+    axis.ticks.y = element_line(),
     axis.line = element_line(color = "black")
   ) +
-  geom_text(aes(x = 1, y = 3.2, label = "a"), size = 4, family = "Arial", fontface = "plain") +  # "A" Molecular
-  geom_text(aes(x = 2, y = 3.2, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "B" Taxonomic Review 
-  geom_text(aes(x = 3, y = 2.2, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "C" Other evidences
+  geom_text(aes(x = 1, y = 1.7, label = "a"), size = 4, family = "Arial", fontface = "plain") +  # "A" Molecular
+  geom_text(aes(x = 2, y = 1.3, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "B" Taxonomic Review 
+  geom_text(aes(x = 3, y = 1.7, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "C" Other evidences
   geom_text(
     data = res.aov.bats,
     aes(
       x = 0.5, 
-      y = 4, 
+      y = 2.2, 
       label = paste(
         "χ2 =",  round(statistic,2),
         "; df =", df, 
-        "; Bonferroni p =", round(p, 3))
+        "; Bonferroni p =", p)
     ),
     hjust = 0, vjust = 1.5, size = 4, color = "black", inherit.aes = FALSE
   ) ; plot_bat
@@ -3832,7 +3839,7 @@ plot_rodentia <- mydata_expanded %>%
     x = "",
     y = ""
   ) +
-  scale_y_continuous(limits = c(0, 4), breaks = c(0, 1, 2, 3, 4), expand = expansion(add = c(0, .5))) +
+  scale_y_continuous(limits = c(0,3.2), breaks = c(0, 1, 2, 3, 4), expand = expansion(add = c(0, .5))) +
   theme_minimal() +
   theme(
     legend.position = "none",
@@ -3842,17 +3849,18 @@ plot_rodentia <- mydata_expanded %>%
     axis.text.y = element_text(size = 12, color = "black"),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
-    axis.ticks = element_blank(),
+    axis.ticks.x = element_line(),  # Garante ticks visíveis
+    axis.ticks.y = element_line(),
     axis.line = element_line(color = "black")
   ) +
   geom_text(aes(x = 1, y = 2.7, label = "a"), size = 4, family = "Arial", fontface = "plain") +  # "A" Molecular
   geom_text(aes(x = 2, y = 2.7, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "B" Taxonomic Review 
-  geom_text(aes(x = 3, y = 2.2, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "C" Other evidences
+  geom_text(aes(x = 3, y = 1.3, label = "b"), size = 4, family = "Arial", fontface = "plain") +   # "C" Other evidences
   geom_text(
     data = res.aov.rodents,
     aes(
       x = 0.5, 
-      y = 4, 
+      y = 3.2, 
       label = paste(
         "χ2 =",  round(statistic,2),
         "; df =", df, 
@@ -3876,7 +3884,10 @@ plot_ancova_mammals <- mydata_expanded %>%
   theme(
     panel.grid = element_blank(),
     axis.line = element_line(color = "black"),
-    legend.position = "none"
+    legend.position = "none",
+    axis.ticks.x = element_line(),  # Garante ticks visíveis
+    axis.ticks.y = element_line(),
+    axis.text = element_text(size = 10, colour = "black"),
   ) +
   labs(x = NULL, y = expression(Log[10]("N. Countries"))); plot_ancova_mammals
 
@@ -3889,7 +3900,10 @@ plot_ancova_without <- mydata_expanded %>%
   theme(
     panel.grid = element_blank(),
     axis.line = element_line(color = "black"),
-    legend.position = ""
+    legend.position = "",
+    axis.ticks.x = element_line(),  # Garante ticks visíveis
+    axis.ticks.y = element_line(),
+    axis.text = element_text(size = 10, colour = "black"),
   ) +
   labs(x = NULL, y = NULL); plot_ancova_without 
 
@@ -3902,7 +3916,10 @@ plot_ancova_bats <- mydata_expanded %>%
   theme(
     panel.grid = element_blank(),
     axis.line = element_line(color = "black"),
-    legend.position = "none"
+    legend.position = "none",
+    axis.ticks.x = element_line(),  # Garante ticks visíveis
+    axis.ticks.y = element_line(),
+    axis.text = element_text(size = 10, colour = "black"),
   ) +
   labs(x = expression(Log[10]("N. Authors")),
        y = expression(Log[10]("N. Countries")))
@@ -3916,7 +3933,10 @@ plot_ancova_rodents <- mydata_expanded %>%
   theme(
     panel.grid = element_blank(),
     axis.line = element_line(color = "black"),
-    legend.position = "none"
+    legend.position = "none",
+    axis.ticks.x = element_line(),  # Garante ticks visíveis
+    axis.ticks.y = element_line(),
+    axis.text = element_text(size = 10, colour = "black"),
   ) +
   labs(x = expression(Log[10]("N authors")), y = NULL)
 
